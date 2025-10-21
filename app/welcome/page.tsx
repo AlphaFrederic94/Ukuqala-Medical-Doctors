@@ -56,11 +56,11 @@ export default function WelcomePage() {
           <div className="grid lg:grid-cols-2 gap-12 items-center">
             <div>
               <h1 className="text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6">
-                Keep doctors and loved ones in the loop
+                Stay connected with your patients and their loved ones.
               </h1>
               <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                Securely share your comprehensive medical history with doctors and loved ones, for better communication
-                and care.
+                With Ukuqala Medicals, you can securely access and manage patient health histories, ensuring clearer communication and better outcomes.
+                Experience healthcare collaboration reimagined.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/dashboard">
@@ -134,7 +134,8 @@ export default function WelcomePage() {
           <div className="text-center mb-16">
             <h2 className="text-4xl font-bold text-foreground mb-4">Simple, supportive search process</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Our platform makes it easy to connect with healthcare professionals and manage your medical records
+              We’re building Africa’s connected healthcare network where doctors and patients meet,
+              share insights, and manage health records effortlessly.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-8">
@@ -233,10 +234,10 @@ export default function WelcomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-primary font-semibold mb-2">QUALIFIED DOCTORS</p>
-            <h2 className="text-4xl font-bold text-foreground mb-4">Keep doctors and loved ones in the loop</h2>
+            <h2 className="text-4xl font-bold text-foreground mb-4">Stay connected with your patients and their loved ones.</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Securely share your comprehensive medical history with doctors and loved ones, for better communication
-              and care.
+              With Ukuqala Medicals, you can securely access and manage patient health histories, ensuring clearer communication and better outcomes.
+              Experience healthcare collaboration reimagined.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
@@ -283,8 +284,8 @@ export default function WelcomePage() {
               <p className="text-primary font-semibold mb-2">WELCOME TO HEALTHCARE</p>
               <h2 className="text-4xl font-bold text-foreground mb-6">Best Care For Your Good Health</h2>
               <p className="text-muted-foreground mb-8 leading-relaxed">
-                Securely share your comprehensive medical history with doctors and loved ones, for better communication
-                and care.
+                With Ukuqala Medicals, you can securely access and manage patient health histories, ensuring clearer communication and better outcomes.
+                Experience healthcare collaboration reimagined.
               </p>
               <div className="space-y-4 mb-8">
                 <div className="flex items-start gap-3">

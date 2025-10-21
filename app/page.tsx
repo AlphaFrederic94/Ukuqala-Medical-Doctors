@@ -68,11 +68,11 @@ export default function WelcomePage() {
                 Trusted by 17,000+ Healthcare Professionals
               </div>
               <h1 className="text-6xl lg:text-7xl font-bold text-foreground leading-[1.1] mb-6 font-[family-name:var(--font-heading)]">
-                Keep doctors and loved ones <span className="text-primary">in the loop</span>
+                Stay connected with your patients <span className="text-primary">and their loved ones.</span>
               </h1>
               <p className="text-xl text-muted-foreground mb-10 leading-relaxed max-w-xl">
-                Securely share your comprehensive medical history with doctors and loved ones, for better communication
-                and care. Experience healthcare management reimagined.
+                With Ukuqala Medicals, you can securely access and manage patient health histories, ensuring clearer communication and better outcomes.
+                Experience healthcare collaboration reimagined.
               </p>
               <div className="flex flex-wrap gap-4">
                 <Link href="/auth/signin">
@@ -196,8 +196,8 @@ export default function WelcomePage() {
               Simple, supportive search process
             </h2>
             <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
-              Our platform makes it easy to connect with healthcare professionals and manage your medical records
-              seamlessly
+              We’re building Africa’s connected healthcare network where doctors and patients meet,
+              share insights, and manage health records effortlessly.
             </p>
           </div>
           <div className="grid md:grid-cols-3 gap-12">
@@ -306,10 +306,10 @@ export default function WelcomePage() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <p className="text-primary font-semibold mb-2">QUALIFIED DOCTORS</p>
-            <h2 className="text-4xl font-bold text-foreground mb-4">Keep doctors and loved ones in the loop</h2>
+            <h2 className="text-4xl font-bold text-foreground mb-4">Stay connected with your patients and their loved ones.</h2>
             <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-              Securely share your comprehensive medical history with doctors and loved ones, for better communication
-              and care.
+              With Ukuqala Medicals, you can securely access and manage patient health histories, ensuring clearer communication and better outcomes.
+              Experience healthcare collaboration reimagined.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
@@ -352,8 +352,8 @@ export default function WelcomePage() {
               <p className="text-primary font-semibold mb-2">WELCOME TO HEALTHCARE</p>
               <h2 className="text-4xl font-bold text-foreground mb-6">Best Care For Your Good Health</h2>
               <p className="text-muted-foreground mb-8 leading-relaxed">
-                Securely share your comprehensive medical history with doctors and loved ones, for better communication
-                and care.
+                With Ukuqala Medicals, you can securely access and manage patient health histories, ensuring clearer communication and better outcomes.
+                Experience healthcare collaboration reimagined.
               </p>
               <div className="space-y-4 mb-8">
                 <div className="flex items-start gap-3">
@@ -402,7 +402,8 @@ export default function WelcomePage() {
             Ready to get started?
           </h2>
           <p className="text-xl text-primary-foreground/90 mb-10 leading-relaxed">
-            Join thousands of healthcare professionals and patients who trust our platform for better care
+            We’re building Africa’s connected healthcare network where doctors and patients meet, share insights,
+            and manage health records effortlessly.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link href="/auth/signin">
