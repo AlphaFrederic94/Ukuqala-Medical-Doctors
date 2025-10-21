@@ -107,7 +107,7 @@ export default function WelcomePage() {
             <div className="relative">
               <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5 aspect-square shadow-2xl">
                 <img
-                  src="/professional-doctor-with-stethoscope-in-medical-of.jpg"
+                  src="/professional-doctor-with-stethoscope-in-medical-of.svg"
                   alt="Healthcare Professional"
                   className="w-full h-full object-cover"
                 />
@@ -372,7 +372,7 @@ export default function WelcomePage() {
             <div className="relative">
               <div className="relative rounded-2xl overflow-hidden bg-primary/10 aspect-[4/3]">
                 <img
-                  src="/doctor-patient-consultation.png"
+                  src="/doctor-patient-consultation.svg"
                   alt="Healthcare Consultation"
                   className="w-full h-full object-cover"
                 />
