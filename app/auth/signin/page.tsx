@@ -195,18 +195,19 @@ export default function SignInPage() {
           <h2 className="text-4xl font-bold mb-4">Welcome to Ukuqala Medicals</h2>
 
           <p className="text-gray-300 mb-2 max-w-md leading-relaxed">
-            Ukuqala Medicals helps doctors to build orchestrated and well crafted dashboards full of beautiful and rich
-            modules. Join us and start building your application today.
+            Built as the doctor’s companion to the Ukuqala patient platform,
+             Ukuqala Medicals helps healthcare professionals create smart, beautiful dashboards filled with powerful modules.
+              Step into the next chapter of Ukuqala and start building your medical workspace today.
           </p>
 
           <p className="text-gray-400 mb-12 text-sm">More than 17k people joined us, it's your turn</p>
 
           {/* CTA Card */}
           <div className="bg-[#1a1a1a] rounded-2xl p-8 max-w-md border border-gray-800">
-            <h3 className="text-xl font-semibold mb-3">Get your right job and right place apply now</h3>
+            <h3 className="text-xl font-semibold mb-3">Apply now and shape the future of healthcare.</h3>
             <div className="flex items-center justify-between">
               <p className="text-gray-400 text-sm max-w-xs">
-                Be among the first founders to experience the easiest way to start run a business.
+                Be among the first doctors to join Ukuqala Medicals, the new way to connect with patients, deliver care, and grow your income.
               </p>
               <div className="flex -space-x-2">
                 <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 border-2 border-[#1a1a1a]"></div>

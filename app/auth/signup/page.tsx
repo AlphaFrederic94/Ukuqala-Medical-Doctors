@@ -222,8 +222,9 @@ export default function SignUpPage() {
           <h2 className="text-4xl font-bold mb-4">Join Ukuqala Medicals Today</h2>
 
           <p className="text-gray-300 mb-2 max-w-md leading-relaxed">
-            Start your journey with the most advanced medical dashboard platform. Manage your practice efficiently and
-            provide better care to your patients.
+            Ukuqala Medicals is the doctor-focused extension of the Ukuqala platform,
+             designed to connect healthcare professionals with patients and bring next-level medical care to Africa.
+              Join us and be part of a smarter, more connected healthcare ecosystem.
           </p>
 
           <p className="text-gray-400 mb-12 text-sm">Trusted by over 17k healthcare professionals worldwide</p>
