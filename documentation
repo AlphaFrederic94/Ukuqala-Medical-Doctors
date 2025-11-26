@@ -1,0 +1,367 @@
+Backend API & Database Blueprint
+================================
+
+Context
+- Frontend flows cover: marketing site, email/password auth screens with doctor onboarding, doctor dashboard (appointments, sessions, patients, messages, chatbot, patient records, profile, settings).
+- Existing backend already exposes Express routes: `GET /api/health`, `POST /api/auth/signup`, `POST /api/auth/signin`, `GET /api/doctors`, `GET /api/doctors/:id` with Postgres + JWT.
+- This document aligns backend surface area with the UI so engineers can implement endpoints, schemas, and the relational model in Postgres.
+
+Conventions
+- Base URL: `/api`
+- Auth: Email/password to obtain JWT; Bearer JWT on protected routes. No third-party identity provider.
+- Timestamps ISO-8601 in UTC. IDs are UUIDv4.
+- Pagination: `limit` (default 10), `offset` (default 0).
+
+API Routes & Schemas
+--------------------
+
+Health
+- `GET /api/health` → 200 `{ status: "ok", timestamp: string }`
+
+Authentication
+- `POST /api/auth/signup`
+  - Request: `{ email: string, password: string (>=6), firstName: string, lastName: string }`
+  - Response 201: `{ success: true, data: { user: { id, email, name }, token } }`
+- `POST /api/auth/signin`
+  - Request: `{ email: string, password: string }`
+  - Response 200: `{ success: true, data: { user: { id, email, name }, token } }`
+- `GET /api/auth/me` (protected)
+  - Response 200: `{ success: true, data: { id, email, name, specialty, location, timezone, languages, avatarUrl } }`
+- `POST /api/auth/forgot` → `{ email }` → 200 `{ success: true }`
+- `POST /api/auth/reset` → `{ token, newPassword }` → 200 `{ success: true }`
+
+Onboarding (post-signup doctor profile completion)
+- `GET /api/onboarding` (protected) → `{ success: true, data: OnboardingState }`
+- `POST /api/onboarding`
+  - Request: `{ specialty, location, timezone?, languages?: string[], bio?, avatarUrl?, availability?: Slot[] }`
+  - Response: `{ success: true, data: { completed: boolean } }`
+  - OnboardingState: `{ completed: boolean, requiredFields: string[] }`
+
+Patient Booking (patient-facing frontend)
+- `POST /api/patient/auth/signup`
+  - Request: `{ firstName, lastName, email, password, phone? }`
+  - Response: `{ success: true, data: { patient: { id, firstName, lastName, email }, token } }`
+- `POST /api/patient/auth/signin`
+  - Request: `{ email, password }`
+  - Response: `{ success: true, data: { patient: { id, firstName, lastName, email }, token } }`
+- `GET /api/patient/doctors`
+  - Query: `specialty?`, `location?`, `availabilityFrom?`, `availabilityTo?`, `limit?`, `offset?`
+  - Response: `{ success: true, data: Doctor[], pagination }`
+- `GET /api/patient/doctors/:id`
+  - Response: `{ success: true, data: Doctor }`
+- `GET /api/patient/doctors/:id/slots`
+  - Query: `from`, `to`
+  - Response: `{ success: true, data: Slot[] }` where Slot `{ start: string, end: string, mode: "virtual"|"in_person" }`
+- `POST /api/patient/bookings`
+  - Auth: patient JWT
+  - Request: `{ doctorId, startAt, endAt?, type: "physical"|"virtual"|"follow-up", reason?, symptoms?, locationPreference?, paymentMethod?, insurance?: { provider, memberId } }`
+  - Response: `{ success: true, data: { bookingId, status: "pending"|"confirmed" } }`
+- `GET /api/patient/bookings`
+  - Query: `status? (pending|confirmed|canceled|completed)`, `from?`, `to?`, `limit?`, `offset?`
+  - Response: `{ success: true, data: Booking[], pagination }`
+- `GET /api/patient/bookings/:id`
+  - Response: `{ success: true, data: Booking }`
+- `POST /api/patient/bookings/:id/cancel`
+  - Request: `{ reason? }`
+  - Response: `{ success: true, data: { status: "canceled" } }`
+- `POST /api/patient/bookings/:id/reschedule`
+  - Request: `{ startAt, endAt?, reason? }`
+  - Response: `{ success: true, data: { status: "pending"|"confirmed", startAt, endAt } }`
+- `POST /api/patient/bookings/:id/payment`
+  - Request: `{ intentId?, method: "card"|"mobile_money"|"cash", amount, currency, metadata? }`
+  - Response: `{ success: true, data: { paymentStatus: "initiated"|"paid"|"failed", receiptUrl? } }`
+
+Doctors
+- `GET /api/doctors`
+  - Query: `specialty?`, `location?`, `limit?`, `offset?`
+  - Response 200: `{ success: true, data: Doctor[], pagination: { limit, offset, total } }`
+  - Doctor: `{ id, name, specialty, rating: number, location, image, availability: Slot[], created_at }`
+  - Slot: `{ day: string, start: string, end: string }`
+- `GET /api/doctors/:id`
+  - Response 200: `{ success: true, data: Doctor }` or 404
+- `PUT /api/doctors/:id` (self-update)
+  - Request: `{ name?, specialty?, bio?, location?, timezone?, languages?: string[], avatarUrl?, availability?: Slot[] }`
+  - Response 200: `{ success: true, data: Doctor }`
+
+Patients
+- `GET /api/patients`
+  - Query: `search?`, `status? (active|inactive|pending)`, `limit?`, `offset?`
+  - Response: `{ success: true, data: Patient[], pagination }`
+- `POST /api/patients`
+  - Request: `{ firstName, lastName, email, phone?, address?, city?, country?, status?, dob?, gender?, emergencyContact?: { name, phone }, notes? }`
+  - Response 201: `{ success: true, data: Patient }`
+- `GET /api/patients/:id` → detailed profile including summary stats
+- `PUT /api/patients/:id` → same shape as create (partial)
+- `GET /api/patients/:id/history` → `{ appointments: Appointment[], records: Record[] }`
+
+Appointments (covers “My Appointments” + scheduling from records)
+- `GET /api/appointments`
+  - Query: `doctorId`, `patientId?`, `from?`, `to?`, `status? (scheduled|completed|canceled|rescheduled)`, `search?`
+  - Response: `{ success: true, data: Appointment[], pagination }`
+- `POST /api/appointments`
+  - Request: `{ doctorId, patientId, scheduledAt: string, durationMinutes: number, type: "physical"|"virtual"|"follow-up", location?, meetingUrl?, notes?, sessionId? }`
+  - Response 201: `{ success: true, data: Appointment }`
+- `GET /api/appointments/:id`
+- `PUT /api/appointments/:id`
+  - Request: `{ scheduledAt?, durationMinutes?, type?, location?, meetingUrl?, notes?, status? }`
+- `POST /api/appointments/:id/reschedule`
+  - Request: `{ scheduledAt, reason? }`
+- `POST /api/appointments/:id/cancel`
+  - Request: `{ reason? }`
+
+Sessions (dashboard “My Sessions”)
+- `GET /api/sessions`
+  - Query: `doctorId`, `from?`, `to?`, `status? (scheduled|live|completed|canceled)`
+  - Response: `{ success: true, data: Session[], pagination }`
+  - Session: `{ id, doctorId, title, startAt, endAt, type: "group"|"1:1"|"telehealth", capacity?: number, meetingUrl?, status, patients: CompactPatient[] }`
+- `POST /api/sessions`
+  - Request: `{ doctorId, title, startAt, endAt, type, capacity?, meetingUrl?, patientIds?: string[], notes? }`
+- `POST /api/sessions/:id/start` → generates/returns meetingUrl/token
+- `POST /api/sessions/:id/cancel` → `{ reason? }`
+
+Messages (dashboard “Messages”)
+- `GET /api/conversations`
+  - Query: `doctorId`, `search?`
+  - Response: `{ success: true, data: Conversation[] }`
+  - Conversation: `{ id, doctorId, patientId, lastMessage, lastMessageAt, unreadCount, patient: { id, name, avatar } }`
+- `POST /api/conversations`
+  - Request: `{ doctorId, patientId }`
+  - Response 201: `{ success: true, data: Conversation }`
+- `GET /api/conversations/:id/messages`
+  - Query: `limit?`, `offset?`
+  - Response: `{ success: true, data: Message[], pagination }`
+  - Message: `{ id, conversationId, senderRole: "doctor"|"patient", content, createdAt, readAt? }`
+- `POST /api/conversations/:id/messages`
+  - Request: `{ content, attachments?: Attachment[] }`
+  - Attachment: `{ url, type, name, size }`
+- `POST /api/conversations/:id/read` → marks messages read
+
+Medical Records (dashboard “Patient Records”)
+- `GET /api/patients/:id/records`
+  - Query: `search?`, `type?`, `from?`, `to?`
+  - Response: `{ success: true, data: Record[], pagination }`
+  - Record: `{ id, patientId, doctorId, recordType, fileUrl, fileSizeBytes, storageKey, createdAt, notes?, sentTo?: Share[] }`
+- `POST /api/patients/:id/records`
+  - Request: `{ recordType, fileUrl, fileSizeBytes, notes?, storageKey?, metadata?: object }`
+- `POST /api/records/:id/share`
+  - Request: `{ recipientEmail, expiresAt?, allowDownload?: boolean }`
+  - Response: `{ success: true, data: Share }`
+  - Share: `{ id, recordId, recipientEmail, shareToken, expiresAt?, createdAt, openedAt? }`
+
+Chatbot (dashboard “Medical Chatbot”)
+- `POST /api/chatbot/message`
+  - Request: `{ prompt: string, context?: { patientId?, appointmentId?, specialties?: string[] } }`
+  - Response: `{ success: true, data: { reply: string, citations?: string[] } }`
+
+Profile & Settings
+- `GET /api/me` → doctor profile + stats (`appointmentsThisWeek`, `patientsTotal`, `responseTime`)
+- `PUT /api/me`
+  - Request: `{ name?, phone?, location?, specialty?, bio?, avatarUrl?, languages?, timezone? }`
+- `PATCH /api/me/password`
+  - Request: `{ currentPassword, newPassword }`
+- `GET /api/settings/notifications`
+  - Response: `{ email: boolean, sms: boolean, newPatientAlerts: boolean, sessionReminders: boolean }`
+- `PUT /api/settings/notifications` → update same shape
+
+Metrics (for dashboard cards/charts)
+- `GET /api/stats/doctor`
+  - Query: `doctorId`, `range? (day|week|month|all)`
+  - Response: `{ success: true, data: { totalPatients, activePatients, newPatientsThisMonth, pendingPatients, appointmentsToday, newBookings, sessionsToday, sessionsWeek, consultationsSeries: ChartPoint[], patientSeries: ChartPoint[], activityPercent: number } }`
+  - ChartPoint: `{ label: string, value: number, secondary?: number }`
+
+Database Schema (Postgres)
+--------------------------
+- `doctors`
+  - `id` uuid PK
+  - `email` text unique not null
+  - `password` text not null
+  - `name` text not null
+  - `specialty` text
+  - `bio` text
+  - `rating` numeric(2,1) default 0
+  - `location` text
+  - `timezone` text
+  - `languages` text[] default '{}'
+  - `avatar_url` text
+  - `availability` jsonb default '[]' -- array of slots
+  - `created_at` timestamptz default now()
+  - `updated_at` timestamptz default now()
+
+- `patients`
+  - `id` uuid PK
+  - `first_name` text
+  - `last_name` text
+  - `email` text unique
+  - `phone` text
+  - `status` text check (status in ('active','inactive','pending')) default 'active'
+  - `address` text
+  - `city` text
+  - `country` text
+  - `dob` date
+  - `gender` text
+  - `emergency_contact` jsonb
+  - `notes` text
+  - `created_at` timestamptz default now()
+  - `updated_at` timestamptz default now()
+
+- `appointments`
+  - `id` uuid PK
+  - `doctor_id` uuid FK -> doctors.id
+  - `patient_id` uuid FK -> patients.id
+  - `session_id` uuid FK -> sessions.id null
+  - `scheduled_at` timestamptz
+  - `duration_minutes` int
+  - `type` text check (type in ('physical','virtual','follow-up'))
+  - `location` text
+  - `meeting_url` text
+  - `status` text check (status in ('scheduled','completed','canceled','rescheduled')) default 'scheduled'
+  - `notes` text
+  - `created_at` timestamptz default now()
+  - `updated_at` timestamptz default now()
+
+- `sessions`
+  - `id` uuid PK
+  - `doctor_id` uuid FK -> doctors.id
+  - `title` text
+  - `start_at` timestamptz
+  - `end_at` timestamptz
+  - `type` text check (type in ('group','1:1','telehealth'))
+  - `capacity` int
+  - `meeting_url` text
+  - `status` text check (status in ('scheduled','live','completed','canceled')) default 'scheduled'
+  - `notes` text
+  - `created_at` timestamptz default now()
+
+- `medical_records`
+  - `id` uuid PK
+  - `patient_id` uuid FK -> patients.id
+  - `doctor_id` uuid FK -> doctors.id
+  - `record_type` text
+  - `file_url` text
+  - `file_size_bytes` bigint
+  - `storage_key` text
+  - `notes` text
+  - `metadata` jsonb
+  - `created_at` timestamptz default now()
+
+- `record_shares`
+  - `id` uuid PK
+  - `record_id` uuid FK -> medical_records.id
+  - `recipient_email` text
+  - `share_token` text unique
+  - `allow_download` boolean default false
+  - `expires_at` timestamptz
+  - `opened_at` timestamptz
+  - `created_at` timestamptz default now()
+  - `sent_by` uuid FK -> doctors.id
+
+- `conversations`
+  - `id` uuid PK
+  - `doctor_id` uuid FK -> doctors.id
+  - `patient_id` uuid FK -> patients.id
+  - `last_message` text
+  - `last_message_at` timestamptz
+  - `unread_doctor` int default 0
+  - `unread_patient` int default 0
+  - `created_at` timestamptz default now()
+
+- `messages`
+  - `id` uuid PK
+  - `conversation_id` uuid FK -> conversations.id
+  - `sender_role` text check (sender_role in ('doctor','patient'))
+  - `content` text
+  - `attachments` jsonb
+  - `created_at` timestamptz default now()
+  - `read_at` timestamptz
+
+- `notifications`
+  - `id` uuid PK
+  - `user_id` uuid -- can be doctor or patient (store role in payload)
+  - `channel` text check (channel in ('email','sms','push'))
+  - `template` text
+  - `payload` jsonb
+  - `status` text check (status in ('pending','sent','failed','read')) default 'pending'
+  - `sent_at` timestamptz
+  - `read_at` timestamptz
+
+Mermaid ER Diagram
+```
+erDiagram
+  doctors {
+    uuid id PK
+    text email
+    text password
+    text name
+    text specialty
+    text location
+    text timezone
+    text[] languages
+    jsonb availability
+  }
+  patients {
+    uuid id PK
+    text first_name
+    text last_name
+    text email
+    text phone
+    text status
+  }
+  sessions {
+    uuid id PK
+    uuid doctor_id FK
+    text title
+    timestamptz start_at
+    timestamptz end_at
+    text type
+  }
+  appointments {
+    uuid id PK
+    uuid doctor_id FK
+    uuid patient_id FK
+    uuid session_id FK
+    timestamptz scheduled_at
+    text type
+    text status
+  }
+  medical_records {
+    uuid id PK
+    uuid patient_id FK
+    uuid doctor_id FK
+    text record_type
+    text file_url
+  }
+  record_shares {
+    uuid id PK
+    uuid record_id FK
+    text recipient_email
+  }
+  conversations {
+    uuid id PK
+    uuid doctor_id FK
+    uuid patient_id FK
+    timestamptz last_message_at
+  }
+  messages {
+    uuid id PK
+    uuid conversation_id FK
+    text sender_role
+    text content
+    timestamptz created_at
+  }
+
+  doctors ||--o{ sessions : hosts
+  doctors ||--o{ appointments : has
+  patients ||--o{ appointments : books
+  sessions ||--o{ appointments : groups
+  patients ||--o{ medical_records : owns
+  doctors ||--o{ medical_records : uploads
+  medical_records ||--o{ record_shares : shared_via
+  doctors ||--o{ conversations : participates
+  patients ||--o{ conversations : participates
+  conversations ||--o{ messages : contains
+```
+
+Notes & Implementation Hints
+- File uploads: back records upload should accept pre-signed URL flow; store `storage_key` + `file_url`.
+- Email/SMS notifications: use `notifications` table for audit + retry; hook into appointment creation/reschedule and record sharing.
+- Auditing: for PHI, add request logging (already pino) and consider an `audit_logs` table if compliance is required.

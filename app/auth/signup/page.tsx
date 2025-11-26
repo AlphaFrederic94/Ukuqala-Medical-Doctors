@@ -19,8 +19,8 @@ export default function SignUpPage() {
 
   const handleSignUp = (e: React.FormEvent) => {
     e.preventDefault()
-    // For now, just navigate to dashboard
-    router.push("/dashboard")
+    // After account creation, move to onboarding flow
+    router.push("/onboarding")
   }
 
   return (
