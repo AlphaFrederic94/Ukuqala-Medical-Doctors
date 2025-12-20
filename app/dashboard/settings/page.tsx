@@ -1,4 +1,7 @@
-import { Lock, Bell, Globe } from "lucide-react"
+"use client"
+
+import { useState } from "react"
+import { Lock, Bell, Globe, CheckCircle2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -7,6 +10,49 @@ import { Switch } from "@/components/ui/switch"
 import { Header } from "@/components/header"
 
 export default function SettingsPage() {
+  const [currentPassword, setCurrentPassword] = useState("")
+  const [newPassword, setNewPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [status, setStatus] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
+
+  const handlePasswordUpdate = async () => {
+    setError(null)
+    setStatus(null)
+    if (newPassword !== confirmPassword) {
+      setError("New passwords do not match")
+      return
+    }
+    const token = typeof window !== "undefined" ? localStorage.getItem("doctorToken") : null
+    if (!token) {
+      setError("You must be signed in")
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.message || "Unable to update password")
+      }
+      setStatus("Password updated successfully")
+      setCurrentPassword("")
+      setNewPassword("")
+      setConfirmPassword("")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to update password"
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col">
       <Header title="Settings" />
@@ -27,17 +73,47 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="currentPassword">Current Password</Label>
-                <Input id="currentPassword" type="password" className="bg-background border-border" />
+                <Input
+                  id="currentPassword"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="bg-background border-border"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="newPassword">New Password</Label>
-                <Input id="newPassword" type="password" className="bg-background border-border" />
+                <Input
+                  id="newPassword"
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="bg-background border-border"
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                <Input id="confirmPassword" type="password" className="bg-background border-border" />
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="bg-background border-border"
+                />
               </div>
-              <Button className="bg-primary text-primary-foreground hover:bg-primary/90">Update Password</Button>
+              {error && <p className="text-sm text-red-500">{error}</p>}
+              {status && (
+                <p className="flex items-center gap-1 text-sm text-green-600">
+                  <CheckCircle2 className="h-4 w-4" /> {status}
+                </p>
+              )}
+              <Button
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+                onClick={handlePasswordUpdate}
+                disabled={loading}
+              >
+                {loading ? "Updating..." : "Update Password"}
+              </Button>
             </div>
           </Card>
 

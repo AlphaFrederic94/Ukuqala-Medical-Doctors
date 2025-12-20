@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import {
   LayoutDashboard,
   Bookmark,
@@ -17,7 +17,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ThemeToggle } from "@/components/theme-toggle"
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -33,8 +33,44 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [doctor, setDoctor] = useState<{ fullName: string; email: string; avatar?: string }>({
+    fullName: "Doctor",
+    email: "",
+  })
+
+  const handleLogout = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("doctorToken")
+      localStorage.removeItem("doctorRemember")
+    }
+    router.push("/auth/signin")
+  }
+
+  useEffect(() => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("doctorToken") : null
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
+    if (!token || !API_URL) return
+    ;(async () => {
+      try {
+        const res = await fetch(`${API_URL}/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        const json = await res.json()
+        if (res.ok && json?.data) {
+          const d = json.data
+          const name = `${d.first_name || ""} ${d.last_name || ""}`.trim() || d.email || "Doctor"
+          setDoctor({ fullName: name, email: d.email, avatar: d.avatar_url })
+        }
+      } catch (e) {
+        // ignore fetch errors; fallback stays
+      }
+    })()
+  }, [])
+
+  const initials = useMemo(() => doctor.fullName.split(" ").map((x) => x[0]).join("").slice(0, 2).toUpperCase(), [doctor.fullName])
 
   return (
     <>
@@ -63,20 +99,31 @@ export function Sidebar() {
           </div>
           <Avatar
             className={`border-2 border-primary/20 bg-gradient-to-br from-primary/20 to-primary/5 ${isCollapsed ? "h-12 w-12" : "h-20 w-20"}`}
+            onClick={() => router.push("/dashboard/profile")}
           >
-            <AvatarFallback className="bg-transparent text-2xl font-bold text-primary">UM</AvatarFallback>
+            {doctor.avatar ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={doctor.avatar} alt="Avatar" className="h-full w-full object-cover rounded-full" />
+            ) : (
+              <AvatarFallback className="bg-transparent text-2xl font-bold text-primary">{initials || "DR"}</AvatarFallback>
+            )}
           </Avatar>
           {!isCollapsed && (
             <>
               <div className="text-center">
-                <p className="text-lg font-bold text-sidebar-foreground">Dr. Ukuqala</p>
-                <p className="text-xs text-muted-foreground">doctor@ukuqala.com</p>
+                <p className="text-lg font-bold text-sidebar-foreground">{doctor.fullName}</p>
+                <p className="text-xs text-muted-foreground">{doctor.email || "—"}</p>
                 <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
                   <div className="h-1.5 w-1.5 rounded-full bg-primary" />
                   Active
                 </div>
               </div>
-              <Button variant="outline" size="sm" className="w-full border-border bg-card hover:bg-accent">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full border-border bg-card hover:bg-accent"
+                onClick={handleLogout}
+              >
                 Log out
               </Button>
             </>

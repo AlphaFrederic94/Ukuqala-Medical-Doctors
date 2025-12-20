@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { Mail, Lock, Eye, EyeOff } from "lucide-react"
@@ -13,11 +13,86 @@ export default function SignInPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
+
+  const navigateAfterLogin = async (token: string) => {
+    // Fetch profile to see onboarding status
+    const profileRes = await fetch(`${API_URL}/profile`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    const profile = await profileRes.json()
+    const onboardingCompleted = profile?.data?.onboarding_completed
+    router.push(onboardingCompleted ? "/dashboard" : "/onboarding")
+  }
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const storedRemember = localStorage.getItem("doctorRemember") === "true"
+    const storedEmail = localStorage.getItem("doctorEmail")
+    if (storedRemember) setRememberMe(true)
+    if (storedEmail) setEmail(storedEmail)
+
+    const token = localStorage.getItem("doctorToken")
+    if (token && storedRemember) {
+      // Try to resume session silently
+      ;(async () => {
+        try {
+          setIsLoading(true)
+          await navigateAfterLogin(token)
+        } catch (err) {
+          // invalid token, clean up
+          localStorage.removeItem("doctorToken")
+          localStorage.removeItem("doctorRemember")
+          localStorage.removeItem("doctorEmail")
+        } finally {
+          setIsLoading(false)
+        }
+      })()
+    }
+  }, [])
+
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault()
-    // For now, just navigate to dashboard
-    router.push("/dashboard")
+    setError(null)
+    setSuccess(null)
+    setIsLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/auth/signin`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.message || "Unable to sign in")
+      }
+      const token = data?.data?.token
+      if (!token) throw new Error("Missing token from server")
+      localStorage.setItem("doctorToken", token)
+      if (rememberMe) {
+        localStorage.setItem("doctorRemember", "true")
+        localStorage.setItem("doctorEmail", email)
+      } else {
+        localStorage.removeItem("doctorRemember")
+        localStorage.removeItem("doctorEmail")
+      }
+
+      setSuccess("Login successful")
+      await navigateAfterLogin(token)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to sign in"
+      const friendly =
+        message.includes("fetch") || message.includes("network")
+          ? "Network issue. Please check your connection and try again."
+          : message
+      setError(friendly)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -97,12 +172,16 @@ export default function SignInPage() {
               </label>
             </div>
 
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            {success && <p className="text-sm text-green-600">{success}</p>}
+
             {/* Sign In Button */}
             <button
               type="submit"
-              className="w-full py-3 bg-foreground text-background font-semibold rounded-lg hover:opacity-90 transition-opacity"
+              disabled={isLoading}
+              className="w-full py-3 bg-foreground text-background font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              Sign in
+              {isLoading ? "Signing in..." : "Sign in"}
             </button>
           </form>
 

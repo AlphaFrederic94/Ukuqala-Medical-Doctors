@@ -41,37 +41,38 @@
 
 /* Updated dark mode colors with medical green palette - Wealth and Depth */
 .dark {
-  --background: oklch(0.12 0 0);
-  --foreground: oklch(0.95 0 0);
-  --card: oklch(0.15 0 0);
-  --card-foreground: oklch(0.95 0 0);
-  --popover: oklch(0.15 0 0);
-  --popover-foreground: oklch(0.95 0 0);
+  /* Zinc-900 base (#18181b) */
+  --background: #18181b;
+  --foreground: #f5f5f6;
+  --card: #18181b;
+  --card-foreground: #f5f5f6;
+  --popover: #18181b;
+  --popover-foreground: #f5f5f6;
   --primary: oklch(0.55 0.15 160);
   --primary-foreground: oklch(0.98 0 0);
   --secondary: oklch(0.25 0.08 160);
   --secondary-foreground: oklch(0.95 0 0);
-  --muted: oklch(0.2 0 0);
-  --muted-foreground: oklch(0.65 0 0);
+  --muted: #1f1f23;
+  --muted-foreground: #d4d4d8;
   --accent: oklch(0.55 0.15 160);
   --accent-foreground: oklch(0.95 0 0);
   --destructive: oklch(0.55 0.25 25);
   --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0 0);
-  --input: oklch(0.2 0 0);
+  --border: #27272a;
+  --input: #1f1f23;
   --ring: oklch(0.55 0.15 160);
   --chart-1: oklch(0.55 0.15 160);
   --chart-2: oklch(0.35 0.12 160);
   --chart-3: oklch(0.25 0.08 160);
   --chart-4: oklch(0.6 0.25 35);
   --chart-5: oklch(0.65 0.25 200);
-  --sidebar: oklch(0.15 0 0);
-  --sidebar-foreground: oklch(0.95 0 0);
+  --sidebar: #18181b;
+  --sidebar-foreground: #f5f5f6;
   --sidebar-primary: oklch(0.55 0.15 160);
   --sidebar-primary-foreground: oklch(0.98 0 0);
   --sidebar-accent: oklch(0.25 0.08 160);
-  --sidebar-accent-foreground: oklch(0.95 0 0);
-  --sidebar-border: oklch(0.25 0 0);
+  --sidebar-accent-foreground: #f5f5f6;
+  --sidebar-border: #27272a;
   --sidebar-ring: oklch(0.55 0.15 160);
 }
 

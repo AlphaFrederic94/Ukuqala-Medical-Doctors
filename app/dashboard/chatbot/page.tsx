@@ -54,20 +54,20 @@ export default function ChatbotPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="flex min-h-screen flex-col">
       <Header title="Medical Chatbot" />
 
-      <div className="flex-1 overflow-y-auto bg-background p-6">
-        <div className="mx-auto max-w-4xl space-y-4">
+      <div className="flex-1 overflow-y-auto bg-background p-4 sm:p-6">
+        <div className="mx-auto w-full max-w-3xl space-y-4 px-1 sm:px-0">
           {messages.map((message) => (
             <div key={message.id} className={`flex gap-3 ${message.role === "user" ? "justify-end" : "justify-start"}`}>
               {message.role === "assistant" && (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-primary">
                   <Bot className="h-5 w-5 text-primary-foreground" />
                 </div>
               )}
               <div
-                className={`max-w-[70%] rounded-2xl px-4 py-3 ${
+                className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-3 ${
                   message.role === "user" ? "bg-primary text-primary-foreground" : "bg-card text-card-foreground"
                 }`}
               >
@@ -80,7 +80,7 @@ export default function ChatbotPage() {
                 </p>
               </div>
               {message.role === "user" && (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-muted">
                   <User className="h-5 w-5 text-muted-foreground" />
                 </div>
               )}
@@ -88,7 +88,7 @@ export default function ChatbotPage() {
           ))}
           {isLoading && (
             <div className="flex gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary">
+              <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-primary">
                 <Bot className="h-5 w-5 text-primary-foreground" />
               </div>
               <div className="rounded-2xl bg-card px-4 py-3">
@@ -103,8 +103,8 @@ export default function ChatbotPage() {
         </div>
       </div>
 
-      <div className="border-t border-border bg-card p-6">
-        <div className="mx-auto flex max-w-4xl gap-3">
+      <div className="border-t border-border bg-card p-4 sm:p-6">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-3 sm:flex-row sm:items-center">
           <Input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -112,7 +112,11 @@ export default function ChatbotPage() {
             placeholder="Ask me anything about medical care..."
             className="flex-1 bg-background"
           />
-          <Button onClick={handleSend} disabled={isLoading} className="bg-primary hover:bg-primary/90">
+          <Button
+            onClick={handleSend}
+            disabled={isLoading}
+            className="bg-primary hover:bg-primary/90 w-full sm:w-auto justify-center"
+          >
             <Send className="h-4 w-4" />
           </Button>
         </div>

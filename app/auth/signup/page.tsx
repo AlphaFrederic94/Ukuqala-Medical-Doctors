@@ -16,11 +16,53 @@ export default function SignUpPage() {
     password: "",
     confirmPassword: "",
   })
+  const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
+
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
-    // After account creation, move to onboarding flow
-    router.push("/onboarding")
+    setError(null)
+    setSuccess(null)
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match")
+      return
+    }
+    setIsLoading(true)
+    try {
+      const [firstName, ...rest] = formData.name.trim().split(" ")
+      const lastName = rest.join(" ") || firstName
+      const res = await fetch(`${API_URL}/auth/signup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          firstName,
+          lastName,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data?.message || "Unable to sign up")
+      }
+      const token = data?.data?.token
+      if (!token) throw new Error("Missing token from server")
+      localStorage.setItem("doctorToken", token)
+      setSuccess("Account created successfully. Redirecting to onboarding...")
+      router.push("/onboarding")
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to sign up"
+      const friendly =
+        message.includes("fetch") || message.includes("network")
+          ? "Network issue. Please check your connection and try again."
+          : message
+      setError(friendly)
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -73,11 +115,11 @@ export default function SignUpPage() {
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  placeholder="john.doe@gmail.com"
-                  className="w-full pl-10 pr-4 py-3 bg-muted border-0 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
-              </div>
+                placeholder="john.doe@gmail.com"
+                className="w-full pl-10 pr-4 py-3 bg-muted border-0 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                required
+              />
+            </div>
             </div>
 
             {/* Password Field */}
@@ -92,11 +134,11 @@ export default function SignUpPage() {
                   type={showPassword ? "text" : "password"}
                   value={formData.password}
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-12 py-3 bg-muted border-0 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
-                <button
+                placeholder="••••••••"
+                className="w-full pl-10 pr-12 py-3 bg-muted border-0 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                required
+              />
+              <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
@@ -118,19 +160,23 @@ export default function SignUpPage() {
                   type={showPassword ? "text" : "password"}
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                  placeholder="••••••••"
-                  className="w-full pl-10 pr-4 py-3 bg-muted border-0 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
-              </div>
+                placeholder="••••••••"
+                className="w-full pl-10 pr-4 py-3 bg-muted border-0 rounded-lg text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                required
+              />
             </div>
+            </div>
+
+            {error && <p className="text-sm text-red-500">{error}</p>}
+            {success && <p className="text-sm text-green-600">{success}</p>}
 
             {/* Sign Up Button */}
             <button
               type="submit"
-              className="w-full py-3 bg-foreground text-background font-semibold rounded-lg hover:opacity-90 transition-opacity"
+              disabled={isLoading}
+              className="w-full py-3 bg-foreground text-background font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-60"
             >
-              Create Account
+              {isLoading ? "Creating..." : "Create Account"}
             </button>
           </form>
 
