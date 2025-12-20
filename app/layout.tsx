@@ -16,6 +16,11 @@ export const metadata: Metadata = {
   title: "HealthCare - Doctor Dashboard",
   description: "Professional medical appointment management system",
   generator: "v0.app",
+  icons: {
+    icon: "/ukuqala-logo.png",
+    shortcut: "/ukuqala-logo.png",
+    apple: "/ukuqala-logo.png",
+  },
 }
 
 export default function RootLayout({
