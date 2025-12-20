@@ -93,7 +93,7 @@ export default function DashboardPage() {
     <div className="flex flex-col">
       <Header title="Dashboard" />
 
-      <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+        <div className="p-4 sm:p-6 lg:p-8 space-y-8">
         {/* Welcome Banner */}
         <Card className="relative overflow-hidden border-0 bg-card p-4 sm:p-6 lg:p-8">
           <div className="relative z-10 max-w-2xl space-y-3">
@@ -102,7 +102,7 @@ export default function DashboardPage() {
             <p className="text-sm leading-relaxed text-muted-foreground">
               Manage your day: review appointments, monitor patient flow, and keep conversations moving.
             </p>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               <Button asChild className="bg-primary px-6 py-2 text-primary-foreground hover:bg-primary/90">
                 <Link href="/dashboard/appointments">View my appointments</Link>
               </Button>
@@ -122,50 +122,50 @@ export default function DashboardPage() {
         </Card>
 
         {/* Status Section */}
-        <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-foreground">Status</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="flex items-center justify-between border border-border bg-card p-6">
-              <div>
-                <p className="text-3xl font-bold text-foreground">{stats.totalPatients}</p>
-                <p className="text-sm font-medium text-muted-foreground">Patients</p>
-              </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-blue-500/10">
-                <Wheelchair className="h-6 w-6 text-blue-500" />
-              </div>
-            </Card>
+          <div className="space-y-4">
+            <h3 className="text-xl font-semibold text-foreground">Status</h3>
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <Card className="flex items-center justify-between border border-border bg-card p-4 sm:p-6">
+                <div>
+                  <p className="text-3xl font-bold text-foreground">{stats.totalPatients}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Patients</p>
+                </div>
+                <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-lg bg-blue-500/10">
+                  <Wheelchair className="h-5 w-5 sm:h-6 sm:w-6 text-blue-500" />
+                </div>
+              </Card>
 
-            <Card className="flex items-center justify-between border border-border bg-card p-6">
-              <div>
-                <p className="text-3xl font-bold text-foreground">{pendingCount}</p>
-                <p className="text-sm font-medium text-muted-foreground">Pending bookings</p>
-              </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-purple-500/10">
-                <Bookmark className="h-6 w-6 text-purple-500" />
-              </div>
-            </Card>
+              <Card className="flex items-center justify-between border border-border bg-card p-4 sm:p-6">
+                <div>
+                  <p className="text-3xl font-bold text-foreground">{pendingCount}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Pending bookings</p>
+                </div>
+                <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-lg bg-purple-500/10">
+                  <Bookmark className="h-5 w-5 sm:h-6 sm:w-6 text-purple-500" />
+                </div>
+              </Card>
 
-            <Card className="flex items-center justify-between border border-border bg-card p-6">
-              <div>
-                <p className="text-3xl font-bold text-foreground">{stats.confirmedAppointments}</p>
-                <p className="text-sm font-medium text-muted-foreground">Confirmed</p>
-              </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-orange-500/10">
-                <Calendar className="h-6 w-6 text-orange-500" />
-              </div>
-            </Card>
+              <Card className="flex items-center justify-between border border-border bg-card p-4 sm:p-6">
+                <div>
+                  <p className="text-3xl font-bold text-foreground">{stats.confirmedAppointments}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Confirmed</p>
+                </div>
+                <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-lg bg-orange-500/10">
+                  <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-orange-500" />
+                </div>
+              </Card>
 
-            <Card className="flex items-center justify-between border border-border bg-card p-6">
-              <div>
-                <p className="text-3xl font-bold text-foreground">{stats.avgRating.toFixed(1)}</p>
-                <p className="text-sm font-medium text-muted-foreground">Avg. rating</p>
-              </div>
-              <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-amber-400/15">
-                <Star className="h-6 w-6 text-amber-400" />
-              </div>
-            </Card>
+              <Card className="flex items-center justify-between border border-border bg-card p-4 sm:p-6">
+                <div>
+                  <p className="text-3xl font-bold text-foreground">{stats.avgRating.toFixed(1)}</p>
+                  <p className="text-sm font-medium text-muted-foreground">Avg. rating</p>
+                </div>
+                <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-lg bg-amber-400/15">
+                  <Star className="h-5 w-5 sm:h-6 sm:w-6 text-amber-400" />
+                </div>
+              </Card>
+            </div>
           </div>
-        </div>
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -225,8 +225,8 @@ export default function DashboardPage() {
         {/* Upcoming Sessions Section */}
         <div className="space-y-4">
           <h3 className="text-lg sm:text-xl font-semibold text-foreground">Your upcoming sessions</h3>
-          <Card className="border border-border bg-card overflow-x-auto">
-            <div className="hidden sm:grid grid-cols-3 border-b border-border bg-muted/50 px-6 py-4">
+          <Card className="border border-border bg-card">
+            <div className="hidden sm:grid grid-cols-3 border-b border-border bg-muted/50 px-4 sm:px-6 py-4">
               <p className="text-sm font-semibold text-foreground">Type</p>
               <p className="text-sm font-semibold text-foreground">Scheduled Date</p>
               <p className="text-sm font-semibold text-foreground">Status</p>
@@ -256,15 +256,27 @@ export default function DashboardPage() {
                 {upcoming.map((appt) => {
                   const date = new Date(appt.scheduled_at)
                   return (
-                    <div key={appt.id} className="grid sm:grid-cols-3 px-6 py-4 items-center gap-2">
-                      <p className="text-sm text-foreground capitalize">{appt.type}</p>
-                      <p className="text-sm text-foreground">
-                        {date.toLocaleString(undefined, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        })}
-                      </p>
-                      <p className="text-sm text-muted-foreground capitalize">{appt.status}</p>
+                    <div
+                      key={appt.id}
+                      className="px-4 sm:px-6 py-4 flex flex-col sm:grid sm:grid-cols-3 gap-2"
+                    >
+                      <div className="flex items-center justify-between sm:block">
+                        <p className="text-xs text-muted-foreground sm:hidden">Type</p>
+                        <p className="text-sm text-foreground capitalize">{appt.type}</p>
+                      </div>
+                      <div className="flex items-center justify-between sm:block">
+                        <p className="text-xs text-muted-foreground sm:hidden">Scheduled</p>
+                        <p className="text-sm text-foreground">
+                          {date.toLocaleString(undefined, {
+                            dateStyle: "medium",
+                            timeStyle: "short",
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center justify-between sm:block">
+                        <p className="text-xs text-muted-foreground sm:hidden">Status</p>
+                        <p className="text-sm text-muted-foreground capitalize">{appt.status}</p>
+                      </div>
                     </div>
                   )
                 })}
