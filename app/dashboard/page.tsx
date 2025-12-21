@@ -93,16 +93,16 @@ export default function DashboardPage() {
     <div className="flex flex-col">
       <Header title="Dashboard" />
 
-        <div className="p-4 sm:p-6 lg:p-8 space-y-8">
+        <div className="p-3 sm:p-6 lg:p-8 space-y-6 sm:space-y-8">
         {/* Welcome Banner */}
         <Card className="relative overflow-hidden border-0 bg-card p-4 sm:p-6 lg:p-8">
-          <div className="relative z-10 max-w-2xl space-y-3">
+          <div className="relative z-10 max-w-2xl space-y-2 sm:space-y-3">
             <p className="text-sm font-medium text-muted-foreground">Welcome back</p>
-            <h2 className="text-2xl sm:text-3xl font-bold text-foreground">{doctorName}</h2>
+            <h2 className="text-xl sm:text-3xl font-bold text-foreground">{doctorName}</h2>
             <p className="text-sm leading-relaxed text-muted-foreground">
               Manage your day: review appointments, monitor patient flow, and keep conversations moving.
             </p>
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
               <Button asChild className="bg-primary px-6 py-2 text-primary-foreground hover:bg-primary/90">
                 <Link href="/dashboard/appointments">View my appointments</Link>
               </Button>
@@ -112,7 +112,7 @@ export default function DashboardPage() {
             </div>
           </div>
           <div
-            className="absolute right-0 top-0 h-full w-1/2 bg-cover bg-center opacity-20"
+            className="absolute right-0 top-0 h-full w-1/2 bg-cover bg-center opacity-15 sm:opacity-20"
             style={{
               backgroundImage:
                 "url('https://hebbkx1anhila5yf.public.blob.vercel-storage.com/doctor%20pannel-mNH6Ombb9kWmJ6x1FPBnG8RLRa7BWP.png')",
@@ -122,8 +122,8 @@ export default function DashboardPage() {
         </Card>
 
         {/* Status Section */}
-          <div className="space-y-4">
-            <h3 className="text-xl font-semibold text-foreground">Status</h3>
+          <div className="space-y-3 sm:space-y-4">
+            <h3 className="text-lg sm:text-xl font-semibold text-foreground">Status</h3>
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <Card className="flex items-center justify-between border border-border bg-card p-4 sm:p-6">
                 <div>

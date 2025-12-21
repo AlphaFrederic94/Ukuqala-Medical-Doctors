@@ -64,19 +64,25 @@ export function Header({ title }: { title: string }) {
   }
 
   return (
-    <div className="flex items-center justify-between border-b border-border bg-card px-8 py-6">
-      <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard/notifications" className="relative inline-flex items-center justify-center">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border bg-card px-4 sm:px-8 py-2.5 sm:py-4 gap-1 sm:gap-3">
+      <div className="flex items-center gap-2">
+        <h1 className="text-base sm:text-2xl font-bold text-foreground">{title}</h1>
+        <Link href="/dashboard/notifications" className="relative inline-flex items-center justify-center sm:hidden">
           <Bell className="h-5 w-5 text-muted-foreground hover:text-foreground" />
           {badge}
         </Link>
-        <div className="flex items-center gap-3">
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">Today's Date</p>
-            <p className="text-lg font-semibold text-foreground">{formatDate(currentTime)}</p>
+      </div>
+      <div className="flex items-center justify-between sm:justify-end gap-2 sm:gap-3">
+        <Link href="/dashboard/notifications" className="relative hidden sm:inline-flex items-center justify-center">
+          <Bell className="h-5 w-5 text-muted-foreground hover:text-foreground" />
+          {badge}
+        </Link>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="text-left sm:text-right leading-tight">
+            <p className="text-[11px] sm:text-sm text-muted-foreground">Today's Date</p>
+            <p className="text-sm sm:text-lg font-semibold text-foreground">{formatDate(currentTime)}</p>
           </div>
-          <Calendar className="h-6 w-6 text-muted-foreground" />
+          <Calendar className="h-5 w-5 sm:h-6 sm:w-6 text-muted-foreground" />
         </div>
       </div>
     </div>
