@@ -152,6 +152,37 @@ async function ensureSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_notifications_doctor ON notifications(doctor_id);
     CREATE INDEX IF NOT EXISTS idx_notifications_unread ON notifications(doctor_id, unread);
+
+    CREATE TABLE IF NOT EXISTS chatbot_conversations (
+      id UUID PRIMARY KEY,
+      doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      title TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_chatbot_conversations_doctor ON chatbot_conversations(doctor_id);
+
+    CREATE TABLE IF NOT EXISTS chatbot_messages (
+      id UUID PRIMARY KEY,
+      conversation_id UUID NOT NULL REFERENCES chatbot_conversations(id) ON DELETE CASCADE,
+      doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      role TEXT NOT NULL CHECK (role IN ('user','assistant')),
+      content TEXT NOT NULL,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_chatbot_messages_conv ON chatbot_messages(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_chatbot_messages_doctor ON chatbot_messages(doctor_id);
+
+    CREATE TABLE IF NOT EXISTS chatbot_message_reactions (
+      id UUID PRIMARY KEY,
+      message_id UUID NOT NULL REFERENCES chatbot_messages(id) ON DELETE CASCADE,
+      doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      reaction TEXT NOT NULL CHECK (reaction IN ('like','save')),
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (message_id, doctor_id, reaction)
+    );
+    CREATE INDEX IF NOT EXISTS idx_chatbot_reactions_msg ON chatbot_message_reactions(message_id);
+    CREATE INDEX IF NOT EXISTS idx_chatbot_reactions_doctor ON chatbot_message_reactions(doctor_id);
   `
   logger.info({ connectionInfo }, "Ensuring database schema")
   const client = await pool.connect()
