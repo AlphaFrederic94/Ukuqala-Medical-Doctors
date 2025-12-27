@@ -33,14 +33,42 @@ const router = express.Router()
 router.get("/", async (req, res, next) => {
   const { onboardingCompleted } = req.query
   try {
-    let sql =
-      "SELECT id, email, first_name, last_name, specialty, country, city, timezone, languages, bio, consultation_mode, availability, onboarding_completed FROM doctors"
     const params = []
+    const filters = []
     if (onboardingCompleted !== undefined) {
       params.push(onboardingCompleted === "true")
-      sql += ` WHERE onboarding_completed = $${params.length}`
+      filters.push(`d.onboarding_completed = $${params.length}`)
     }
-    sql += " ORDER BY created_at DESC"
+
+    const sql = `
+      SELECT
+        d.id,
+        d.email,
+        d.first_name,
+        d.last_name,
+        d.specialty,
+        d.country,
+        d.city,
+        d.timezone,
+        d.languages,
+        d.bio,
+        d.consultation_mode,
+        d.availability,
+        d.onboarding_completed,
+        d.avatar_url,
+        d.experience_years,
+        COALESCE(r.avg_rating, 0)::float AS rating,
+        COALESCE(r.rating_count, 0)::int AS rating_count
+      FROM doctors d
+      LEFT JOIN (
+        SELECT doctor_id, AVG(score) AS avg_rating, COUNT(*) AS rating_count
+        FROM doctor_ratings
+        GROUP BY doctor_id
+      ) r ON r.doctor_id = d.id
+      ${filters.length ? `WHERE ${filters.join(" AND ")}` : ""}
+      ORDER BY d.created_at DESC
+    `
+
     const result = await pool.query(sql, params)
     res.json({ success: true, data: result.rows })
   } catch (err) {
@@ -78,7 +106,31 @@ router.get("/", async (req, res, next) => {
 router.get("/:id", async (req, res, next) => {
   try {
     const result = await pool.query(
-      "SELECT id, email, first_name, last_name, specialty, country, city, timezone, languages, bio, consultation_mode, availability, onboarding_completed FROM doctors WHERE id=$1",
+      `SELECT
+        d.id,
+        d.email,
+        d.first_name,
+        d.last_name,
+        d.specialty,
+        d.country,
+        d.city,
+        d.timezone,
+        d.languages,
+        d.bio,
+        d.consultation_mode,
+        d.availability,
+        d.onboarding_completed,
+        d.avatar_url,
+        d.experience_years,
+        COALESCE(r.avg_rating, 0)::float AS rating,
+        COALESCE(r.rating_count, 0)::int AS rating_count
+      FROM doctors d
+      LEFT JOIN (
+        SELECT doctor_id, AVG(score) AS avg_rating, COUNT(*) AS rating_count
+        FROM doctor_ratings
+        GROUP BY doctor_id
+      ) r ON r.doctor_id = d.id
+      WHERE d.id=$1`,
       [req.params.id]
     )
     if (result.rowCount === 0) {

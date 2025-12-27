@@ -94,4 +94,31 @@ router.get("/doctor", conversationAuth, async (req, res, next) => {
   }
 })
 
+/**
+ * @swagger
+ * /ratings/my:
+ *   get:
+ *     summary: Get ratings submitted by the authenticated patient
+ *     tags: [Ratings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Ratings list
+ */
+router.get("/my", conversationAuth, async (req, res, next) => {
+  try {
+    if (req.actor.type !== "patient") {
+      return res.status(403).json({ success: false, message: "Only patients can view their ratings" })
+    }
+    const result = await pool.query(
+      "SELECT * FROM doctor_ratings WHERE patient_external_id=$1 ORDER BY created_at DESC",
+      [req.actor.patientExternalId]
+    )
+    res.json({ success: true, data: result.rows })
+  } catch (err) {
+    next(err)
+  }
+})
+
 module.exports = router

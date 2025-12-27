@@ -1,5 +1,9 @@
 const swaggerJsdoc = require("swagger-jsdoc")
 
+const DEPLOYED_URL = process.env.SWAGGER_SERVER_URL || "https://ukuqala-medical-doctors-backend.onrender.com"
+const SWAGGER_USER = process.env.SWAGGER_USER
+const SWAGGER_PASS = process.env.SWAGGER_PASS
+
 const swaggerDefinition = {
   openapi: "3.0.0",
   info: {
@@ -9,7 +13,11 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: "http://localhost:8000",
+      url: DEPLOYED_URL,
+      description: "Deployed server",
+    },
+    {
+      url: `http://localhost:${process.env.PORT || 4000}`,
       description: "Local server",
     },
   ],
@@ -137,4 +145,4 @@ const options = {
 
 const swaggerSpec = swaggerJsdoc(options)
 
-module.exports = { swaggerSpec }
+module.exports = { swaggerSpec, SWAGGER_USER, SWAGGER_PASS }
