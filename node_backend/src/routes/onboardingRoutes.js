@@ -13,6 +13,7 @@ const onboardingSchema = z.object({
   languages: z.union([z.array(z.string()), z.string()]).optional(),
   bio: z.string().optional(),
   consultation_mode: z.string().optional(),
+  avatar_url: z.string().url().optional(),
   availability: z.array(z.object({ day: z.string(), start: z.string(), end: z.string() })).optional(),
 })
 

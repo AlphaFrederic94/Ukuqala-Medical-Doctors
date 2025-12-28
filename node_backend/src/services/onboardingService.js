@@ -5,16 +5,17 @@ const REQUIRED_FIELDS = ["specialty", "country", "city", "timezone"]
 async function saveOnboarding(userId, payload) {
   const client = await pool.connect()
   try {
-    const fields = [
-      "specialty",
-      "country",
-      "city",
-      "timezone",
-      "languages",
-      "bio",
-      "consultation_mode",
-      "availability",
-    ]
+  const fields = [
+    "specialty",
+    "country",
+    "city",
+    "timezone",
+    "languages",
+    "bio",
+    "consultation_mode",
+    "avatar_url",
+    "availability",
+  ]
     const updates = []
     const values = []
     fields.forEach((field) => {

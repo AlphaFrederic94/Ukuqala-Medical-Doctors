@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Header } from "@/components/header"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -63,6 +63,8 @@ export default function ProfilePage() {
   const [editForm, setEditForm] = useState<Partial<DoctorProfile>>({})
   const [savingProfile, setSavingProfile] = useState(false)
   const [hoursOpen, setHoursOpen] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const avatarInputRef = useRef<HTMLInputElement | null>(null)
 
   const loadProfile = useCallback(() => {
     const token = typeof window !== "undefined" ? localStorage.getItem("doctorToken") : null
@@ -166,6 +168,31 @@ export default function ProfilePage() {
     ]
   }, [profile?.availability])
 
+  const handleAvatarUpload = async (file?: File | null) => {
+    if (!file) return
+    const token = typeof window !== "undefined" ? localStorage.getItem("doctorToken") : null
+    if (!token) return
+    setAvatarUploading(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.append("avatar", file)
+      const res = await fetch(`${API_URL}/profile/avatar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || "Failed to upload avatar")
+      setProfile(json.data)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to upload avatar"
+      setError(message)
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col">
       <Header title="Doctor Profile" />
@@ -198,6 +225,23 @@ export default function ProfilePage() {
                       {fullName.slice(0, 2).toUpperCase()}
                     </div>
                   )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => handleAvatarUpload(e.target.files?.[0] || null)}
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={avatarUploading}
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    {avatarUploading ? "Uploading..." : "Change photo"}
+                  </Button>
                 </div>
                 <div>
                   <h1 className="text-lg sm:text-xl font-bold text-foreground">{fullName}</h1>

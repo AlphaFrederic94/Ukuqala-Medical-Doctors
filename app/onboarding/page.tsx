@@ -72,6 +72,8 @@ export default function DoctorOnboardingPage() {
   const [infoOpen, setInfoOpen] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [form, setForm] = useState({
@@ -131,6 +133,7 @@ export default function DoctorOnboardingPage() {
                 ? doctor.availability
                 : prev.availability,
           }))
+          if (doctor.avatar_url) setAvatarPreview(doctor.avatar_url)
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unable to load onboarding"
@@ -176,6 +179,7 @@ export default function DoctorOnboardingPage() {
         languages: languagesArray(),
         bio: form.bio,
         consultation_mode: form.consultationMode,
+        avatar_url: avatarPreview || undefined,
         availability: form.availability,
       }
 
@@ -227,6 +231,29 @@ export default function DoctorOnboardingPage() {
     else handleSubmit()
   }
 
+  const handleAvatarChange = async (file?: File | null) => {
+    if (!file || !token) return
+    setAvatarUploading(true)
+    setError(null)
+    try {
+      const formData = new FormData()
+      formData.append("avatar", file)
+      const res = await fetch(`${API_URL}/profile/avatar`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json?.message || "Unable to upload avatar")
+      setAvatarPreview(json.data?.avatar_url || null)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to upload avatar"
+      setError(message)
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 via-background to-background pb-24 lg:pb-12">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
@@ -276,6 +303,33 @@ export default function DoctorOnboardingPage() {
                 <div className="space-y-6 sm:space-y-8">
                   {step === 0 && (
                     <div className="space-y-4 sm:space-y-6">
+                      <div className="flex items-center gap-4">
+                        <div className="h-16 w-16 sm:h-20 sm:w-20 rounded-full border border-border overflow-hidden bg-muted flex items-center justify-center text-lg font-semibold text-muted-foreground">
+                          {avatarPreview ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={avatarPreview} alt="Avatar preview" className="h-full w-full object-cover" />
+                          ) : (
+                            (form.name || "Dr").slice(0, 2).toUpperCase()
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Label htmlFor="avatar" className="text-sm font-medium text-foreground">
+                            Profile photo
+                          </Label>
+                          <input
+                            id="avatar"
+                            type="file"
+                            accept="image/*"
+                            className="text-sm"
+                            onChange={(e) => handleAvatarChange(e.target.files?.[0] || null)}
+                            disabled={avatarUploading}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Upload a clear headshot. Max 5MB.
+                          </p>
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         <Label htmlFor="name">Full name</Label>
                         <div className="relative">

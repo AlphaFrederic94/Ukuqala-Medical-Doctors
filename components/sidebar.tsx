@@ -13,10 +13,10 @@ import {
   Settings,
   Bot,
   LogOut,
-  Sun,
   ChevronLeft,
   ChevronRight,
   Menu,
+  Sun,
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
@@ -60,6 +60,20 @@ export function Sidebar() {
       }
     })()
   }, [])
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    const EXPANDED = 288
+    const COLLAPSED = 80
+    const mediaQuery = window.matchMedia("(min-width: 1024px)")
+    const applyWidth = () => {
+      const width = mediaQuery.matches ? (collapsed ? COLLAPSED : EXPANDED) : 0
+      document.documentElement.style.setProperty("--sidebar-width", `${width}px`)
+    }
+    applyWidth()
+    mediaQuery.addEventListener("change", applyWidth)
+    return () => mediaQuery.removeEventListener("change", applyWidth)
+  }, [collapsed])
 
   const initials = useMemo(
     () => doctor.fullName.split(" ").map((x) => x[0]).join("").slice(0, 2).toUpperCase() || "DR",
@@ -114,15 +128,17 @@ export function Sidebar() {
         type="button"
         className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-white border border-gray-200 shadow-lg"
         onClick={() => setMobileOpen((prev) => !prev)}
+        aria-label="Open navigation"
       >
         <Menu className="h-6 w-6 text-gray-700" />
       </button>
       {mobileOpen && <div className="lg:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setMobileOpen(false)} />}
 
       <aside
-        className={`flex h-screen flex-col bg-white border-r border-gray-200 shadow-sm transition-all duration-200 ${
-          collapsed ? "w-20" : "w-72"
-        } ${mobileOpen ? "fixed inset-y-0 left-0 z-50" : "hidden lg:flex"}`}
+        className={`fixed inset-y-0 left-0 flex h-screen flex-col bg-white border-r border-gray-200 shadow-sm transition-all duration-200 z-40
+        ${collapsed ? "w-20" : "w-72"}
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full"}
+        lg:translate-x-0`}
       >
         <div className="p-6 border-b border-gray-100">
           <div className="flex items-center justify-between mb-6">
@@ -139,9 +155,17 @@ export function Sidebar() {
             </div>
           </div>
           <div className="flex flex-col items-center text-center">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-4">
-              {initials}
-            </div>
+            {doctor.avatar ? (
+              <img
+                src={doctor.avatar}
+                alt="Doctor avatar"
+                className="w-20 h-20 rounded-full object-cover shadow-lg mb-4"
+              />
+            ) : (
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-white text-2xl font-bold shadow-lg mb-4">
+                {initials}
+              </div>
+            )}
             {!collapsed && (
               <>
                 <h3 className="text-lg font-semibold text-gray-900">{doctor.fullName}</h3>
@@ -174,7 +198,7 @@ export function Sidebar() {
           </button>
         </div>
 
-        <div className="border-t border-gray-100">
+        <div className="border-t border-gray-100 hidden lg:block">
           <button
             type="button"
             className="w-full flex items-center justify-between px-4 py-3"
