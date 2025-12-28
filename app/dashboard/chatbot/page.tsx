@@ -1,6 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import dynamic from "next/dynamic"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import remarkGfm from "remark-gfm"
 import {
   Search,
   Menu,
@@ -14,7 +16,7 @@ import {
   Bookmark,
   Edit,
   RefreshCw,
-  Link,
+  Link as LinkIcon,
   Mic,
   Image,
   FileText,
@@ -23,6 +25,7 @@ import {
   Send,
   Heart,
   Reply,
+  Loader2,
 } from "lucide-react"
 
 type Conversation = {
@@ -36,9 +39,15 @@ type ChatMessage = {
   role: "user" | "assistant"
   content: string
   created_at?: string
+  thinking?: boolean
 }
 
+type Toast = { id: number; message: string; variant?: "default" | "error" | "success" }
+
+const Markdown = dynamic(() => import("react-markdown"), { ssr: false })
 const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
+const WELCOME_MESSAGE =
+  "Sawubona! Ngiyabona. I'm Qala-lwazi, your medical assistant. Ask anything and I'll help with evidence-based answers."
 
 export default function ChatbotPage() {
   const [conversations, setConversations] = useState<Conversation[]>([])
@@ -51,6 +60,9 @@ export default function ChatbotPage() {
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [reactions, setReactions] = useState<Record<string, { liked?: boolean; saved?: boolean }>>({})
+  const [toasts, setToasts] = useState<Toast[]>([])
+  const streamingInterval = useRef<NodeJS.Timeout | null>(null)
 
   const token = useMemo(() => (typeof window !== "undefined" ? localStorage.getItem("doctorToken") : null), [])
 
@@ -58,6 +70,12 @@ export default function ChatbotPage() {
     if (!iso) return ""
     const d = new Date(iso)
     return d.toLocaleString()
+  }
+
+  const pushToast = (message: string, variant: Toast["variant"] = "default") => {
+    const id = Date.now()
+    setToasts((prev) => [...prev, { id, message, variant }])
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 2400)
   }
 
   const fetchConversations = useCallback(async () => {
@@ -97,6 +115,9 @@ export default function ChatbotPage() {
 
   useEffect(() => {
     fetchConversations()
+    return () => {
+      if (streamingInterval.current) clearInterval(streamingInterval.current)
+    }
   }, [fetchConversations])
 
   useEffect(() => {
@@ -113,49 +134,190 @@ export default function ChatbotPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.message || "Failed to create conversation")
-      const newList = [json.data, ...(conversations || [])]
+      const newConv = json.data
+      const newList = [newConv, ...(conversations || [])]
       setConversations(newList)
-      setSelectedChat(json.data?.id || null)
-      setMessages([])
+      setSelectedChat(newConv?.id || null)
+      setMessages([{ id: "welcome", role: "assistant", content: WELCOME_MESSAGE }])
       setShowDrawer(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to create conversation")
     }
   }
 
-  const handleSend = async () => {
-    if (!message.trim() || !selectedChat || !token || !API_URL) return
+  const maybeRenameConversation = (content: string) => {
+    if (!selectedChat) return
+    const conv = conversations.find((c) => c.id === selectedChat)
+    if (!conv) return
+    const titleIsNew = !conv.title || conv.title.toLowerCase().includes("new chat")
+    const noPriorUser = !messages.some((m) => m.role === "user")
+    if (titleIsNew && noPriorUser) {
+      const words = content.trim().split(/\s+/).slice(0, 5).join(" ")
+      const newTitle = words.length ? words : "Conversation"
+      setConversations((prev) => prev.map((c) => (c.id === selectedChat ? { ...c, title: newTitle } : c)))
+    }
+  }
+
+  const streamText = (messageId: string, fullText: string) => {
+    if (streamingInterval.current) clearInterval(streamingInterval.current)
+    const words = fullText.split(" ")
+    let idx = 0
+    streamingInterval.current = setInterval(() => {
+      idx += 1
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === messageId ? { ...m, content: words.slice(0, idx).join(" "), thinking: false } : m
+        )
+      )
+      if (idx >= words.length) {
+        if (streamingInterval.current) clearInterval(streamingInterval.current)
+      }
+    }, 30)
+  }
+
+  const sendMessage = async (content: string, options?: { skipEcho?: boolean; thinkingLabel?: string }) => {
+    if (!content.trim() || !selectedChat || !token || !API_URL) return
+    const thinkingLabel = options?.thinkingLabel || "Qala-lwazi is thinking..."
+    const hasUserBefore = messages.some((m) => m.role === "user")
+    const userId = `user-${Date.now()}`
+    const thinkingId = `assistant-thinking-${Date.now()}`
+
     setSending(true)
     setError(null)
+    setMessages((prev) => [
+      ...prev,
+      ...(options?.skipEcho ? [] : [{ id: userId, role: "user", content, created_at: new Date().toISOString() }]),
+      { id: thinkingId, role: "assistant", content: thinkingLabel, thinking: true, created_at: new Date().toISOString() },
+    ])
+
     try {
       const res = await fetch(`${API_URL}/chatbot/conversations/${selectedChat}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ content: message }),
+        body: JSON.stringify({ content }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json?.message || "Failed to send message")
-      setMessages(json.data || [])
+
+      const serverMessages: ChatMessage[] = json.data || []
+      const lastAssistant = [...serverMessages].reverse().find((m) => m.role === "assistant")
+      if (lastAssistant) {
+        const rest = serverMessages.filter((m) => m.id !== lastAssistant.id)
+        setMessages([...rest, { ...lastAssistant, content: "", thinking: true }])
+        streamText(lastAssistant.id, lastAssistant.content || "")
+      } else {
+        setMessages(serverMessages)
+      }
+
+      if (!hasUserBefore && !options?.skipEcho) {
+        maybeRenameConversation(content)
+      }
       setMessage("")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to send message")
+      const messageText = err instanceof Error ? err.message : "Unable to send message"
+      setError(messageText)
+      pushToast(messageText, "error")
     } finally {
       setSending(false)
     }
   }
 
-  const toggleReaction = async (messageId: string, reaction: "like" | "save") => {
+  const handleSend = () => sendMessage(message)
+
+  const toggleReaction = async (messageId: string, type: "like" | "save") => {
     if (!token || !API_URL) return
+    setReactions((prev) => {
+      const current = prev[messageId] || {}
+      return {
+        ...prev,
+        [messageId]: {
+          ...current,
+          [type === "like" ? "liked" : "saved"]: !current[type === "like" ? "liked" : "saved"],
+        },
+      }
+    })
     try {
       await fetch(`${API_URL}/chatbot/messages/${messageId}/reaction`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reaction, active: true }),
+        body: JSON.stringify({ reaction: type, active: true }),
       })
+      pushToast(type === "like" ? "Liked" : "Saved", "success")
     } catch {
-      // ignore reaction errors
+      // ignore
     }
   }
+
+  const handleCopy = async (text: string) => {
+    if (!navigator.clipboard) return
+    await navigator.clipboard.writeText(text)
+    pushToast("Copied!", "success")
+  }
+
+  const handleRegenerate = () => {
+    const lastUser = [...messages].reverse().find((m) => m.role === "user")
+    if (!lastUser) {
+      pushToast("No prompt to regenerate", "error")
+      return
+    }
+    sendMessage(lastUser.content, { skipEcho: true, thinkingLabel: "Regenerating response..." })
+  }
+
+  const handleShare = async (conversationId: string) => {
+    if (typeof window === "undefined") return
+    const shareLink = `${window.location.origin}/dashboard/chatbot?conversation=${conversationId}`
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: "Conversation", url: shareLink })
+      } else {
+        await navigator.clipboard.writeText(shareLink)
+      }
+      pushToast("Share link ready", "success")
+    } catch {
+      pushToast("Unable to share right now", "error")
+    }
+  }
+
+  const markdownComponents = {
+    p: (props: any) => <p className="text-gray-800 leading-relaxed whitespace-pre-wrap mb-2 last:mb-0" {...props} />,
+    strong: (props: any) => <strong className="font-semibold text-gray-900" {...props} />,
+    table: (props: any) => (
+      <div className="overflow-x-auto rounded-lg border border-gray-200 mb-3">
+        <table className="min-w-full text-sm text-left" {...props} />
+      </div>
+    ),
+    thead: (props: any) => <thead className="bg-gray-100" {...props} />,
+    th: (props: any) => <th className="px-3 py-2 font-semibold text-gray-900 border-b border-gray-200" {...props} />,
+    td: (props: any) => <td className="px-3 py-2 text-gray-800 border-b border-gray-100" {...props} />,
+    tr: (props: any) => <tr className="odd:bg-white even:bg-gray-50" {...props} />,
+    hr: () => <hr className="my-3 border-gray-200" />,
+    ul: (props: any) => <ul className="list-disc pl-5 space-y-1 text-gray-800 mb-2" {...props} />,
+    ol: (props: any) => <ol className="list-decimal pl-5 space-y-1 text-gray-800 mb-2" {...props} />,
+    code: (props: any) => (
+      <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-mono text-gray-900" {...props} />
+    ),
+  }
+
+  const renderEmptyState = () => (
+    <div className="h-full flex flex-col items-center justify-center text-center text-gray-700 space-y-3 bg-white rounded-2xl border border-dashed border-gray-200 p-8">
+      <div className="w-12 h-12 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl font-semibold">
+        QL
+      </div>
+      <div>
+        <h3 className="text-lg font-semibold">Hello, I'm Qala-lwazi</h3>
+        <p className="text-sm text-gray-500">How can I help you today?</p>
+      </div>
+      <button
+        type="button"
+        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+        onClick={() => {
+          setMessage("Tell me about your symptoms")
+        }}
+      >
+        Ask a question
+      </button>
+    </div>
+  )
 
   return (
     <div className="relative flex h-screen bg-gray-50">
@@ -174,6 +336,7 @@ export default function ChatbotPage() {
             <button
               className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center hover:bg-indigo-700 transition-colors"
               onClick={createConversation}
+              type="button"
             >
               <Plus className="w-5 h-5 text-white" />
             </button>
@@ -206,22 +369,22 @@ export default function ChatbotPage() {
               return hay.includes(searchTerm.toLowerCase())
             })
             .map((conv) => (
-            <button
-              key={conv.id}
-              className={`w-full text-left p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
-                conv.id === selectedChat ? "bg-indigo-50 border-l-4 border-indigo-600" : ""
-              }`}
-              onClick={() => {
-                setSelectedChat(conv.id)
-                setShowDrawer(false)
-              }}
-            >
-              <div className="flex items-start justify-between mb-1">
-                <h3 className="font-semibold text-gray-800 text-sm line-clamp-1">{conv.title || "Untitled"}</h3>
-                <span className="text-xs text-gray-500">{formatTime(conv.created_at)}</span>
-              </div>
-              <p className="text-xs text-gray-600 line-clamp-2">Tap to load messages</p>
-            </button>
+              <button
+                key={conv.id}
+                className={`w-full text-left p-4 cursor-pointer hover:bg-gray-50 transition-colors ${
+                  conv.id === selectedChat ? "bg-indigo-50 border-l-4 border-indigo-600" : ""
+                }`}
+                onClick={() => {
+                  setSelectedChat(conv.id)
+                  setShowDrawer(false)
+                }}
+              >
+                <div className="flex items-start justify-between mb-1">
+                  <h3 className="font-semibold text-gray-800 text-sm line-clamp-1">{conv.title || "Untitled"}</h3>
+                  <span className="text-xs text-gray-500">{formatTime(conv.created_at)}</span>
+                </div>
+                <p className="text-xs text-gray-600 line-clamp-2">Tap to load messages</p>
+              </button>
             ))}
           {!conversations.length && (
             <div className="p-4 text-sm text-muted-foreground">No conversations yet. Create one to get started.</div>
@@ -259,9 +422,15 @@ export default function ChatbotPage() {
 
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           {error && <p className="text-sm text-red-500">{error}</p>}
-          {!selectedChat && <p className="text-sm text-muted-foreground">Select or create a conversation to start.</p>}
+          {!selectedChat && renderEmptyState()}
 
-          {selectedChat && loadingMessages && <p className="text-sm text-muted-foreground">Loading messages...</p>}
+          {selectedChat && loadingMessages && (
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading messages...
+            </div>
+          )}
+
+          {selectedChat && !loadingMessages && messages.length === 0 && renderEmptyState()}
 
           {selectedChat &&
             !loadingMessages &&
@@ -287,11 +456,23 @@ export default function ChatbotPage() {
                         </div>
 
                         <div className="flex items-center space-x-2 mt-3 pt-3 border-t border-pink-300">
-                          <button className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-pink-50 transition-colors" type="button">
-                            <Bookmark className="w-3 h-3" />
+                          <button
+                            className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-pink-50 transition-colors"
+                            type="button"
+                            onClick={() => toggleReaction(msg.id, "save")}
+                          >
+                            <Bookmark
+                              className={`w-3 h-3 ${
+                                reactions[msg.id]?.saved ? "text-indigo-600 fill-indigo-600" : "text-gray-700"
+                              }`}
+                            />
                             <span>Save</span>
                           </button>
-                          <button className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-pink-50 transition-colors" type="button">
+                          <button
+                            className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-pink-50 transition-colors"
+                            type="button"
+                            onClick={() => handleCopy(msg.content)}
+                          >
                             <Copy className="w-3 h-3" />
                             <span>Copy</span>
                           </button>
@@ -306,45 +487,90 @@ export default function ChatbotPage() {
                 ) : (
                   <div className="flex justify-start">
                     <div className="max-w-2xl w-full">
-                      <div className="bg-gray-200 rounded-2xl rounded-tl-sm p-4 shadow-sm">
+                      <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm p-4 shadow-sm">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center space-x-2">
-                            <button className="p-1 hover:bg-gray-300 rounded transition-colors" type="button">
+                            <button className="p-1 hover:bg-gray-100 rounded transition-colors" type="button">
                               <Reply className="w-4 h-4 text-gray-600" />
                             </button>
-                            <button className="p-1 hover:bg-gray-300 rounded transition-colors" type="button">
+                            <button className="p-1 hover:bg-gray-100 rounded transition-colors" type="button">
                               <Heart className="w-4 h-4 text-gray-600" />
                             </button>
                           </div>
                           <span className="text-xs text-gray-500">{formatTime(msg.created_at)}</span>
                         </div>
 
-                        <p className="text-gray-800 leading-relaxed mb-4 whitespace-pre-wrap">{msg.content}</p>
+                        {msg.thinking ? (
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Loader2 className="h-4 w-4 animate-spin" /> {msg.content || "Qala-lwazi is thinking..."}
+                          </div>
+                        ) : (
+                          <div className="prose prose-sm max-w-none prose-p:mb-3 prose-headings:mb-2 prose-ul:mb-3 prose-ol:mb-3">
+                            <Markdown remarkPlugins={[remarkGfm]} components={markdownComponents as any}>
+                              {msg.content}
+                            </Markdown>
+                          </div>
+                        )}
 
-                        <div className="flex items-center justify-between pt-3 border-t border-gray-300">
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-200">
                           <div className="flex items-center space-x-2">
-                            <button className="p-2 hover:bg-gray-300 rounded-lg transition-colors" type="button" onClick={() => toggleReaction(msg.id, "like")}>
-                              <ThumbsUp className="w-4 h-4 text-gray-600" />
+                            <button
+                              className={`p-2 rounded-lg transition-colors ${
+                                reactions[msg.id]?.liked ? "bg-indigo-100 text-indigo-600" : "hover:bg-gray-100"
+                              }`}
+                              type="button"
+                              onClick={() => toggleReaction(msg.id, "like")}
+                            >
+                              <ThumbsUp className="w-4 h-4" />
                             </button>
-                            <button className="p-2 hover:bg-gray-300 rounded-lg transition-colors" type="button" onClick={() => toggleReaction(msg.id, "save")}>
-                              <Bookmark className="w-4 h-4 text-gray-600" />
+                            <button
+                              className={`p-2 rounded-lg transition-colors ${
+                                reactions[msg.id]?.saved ? "bg-indigo-100 text-indigo-600" : "hover:bg-gray-100"
+                              }`}
+                              type="button"
+                              onClick={() => toggleReaction(msg.id, "save")}
+                            >
+                              <Bookmark className="w-4 h-4" />
+                            </button>
+                            <button
+                              className="p-2 rounded-lg transition-colors hover:bg-gray-100"
+                              type="button"
+                              onClick={() => setReactions((prev) => ({ ...prev, [msg.id]: { ...prev[msg.id], liked: false } }))}
+                            >
+                              <ThumbsDown className="w-4 h-4 text-gray-600" />
                             </button>
                           </div>
 
                           <div className="flex items-center space-x-2">
-                            <button className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors" type="button">
+                            <button
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors"
+                              type="button"
+                              onClick={() => handleCopy(msg.content)}
+                            >
                               <Copy className="w-3 h-3" />
                               <span>Copy</span>
                             </button>
-                            <button className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors" type="button" onClick={() => handleSend()}>
+                            <button
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors"
+                              type="button"
+                              onClick={handleRegenerate}
+                            >
                               <RefreshCw className="w-3 h-3" />
                               <span>Regenerate</span>
                             </button>
-                            <button className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors" type="button">
-                              <Link className="w-3 h-3" />
+                            <button
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors"
+                              type="button"
+                              onClick={() => handleShare(selectedChat)}
+                            >
+                              <LinkIcon className="w-3 h-3" />
                               <span>Copy Link</span>
                             </button>
-                            <button className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors" type="button">
+                            <button
+                              className="flex items-center space-x-1 px-3 py-1.5 bg-white rounded-lg text-xs hover:bg-gray-100 transition-colors"
+                              type="button"
+                              onClick={() => handleShare(selectedChat)}
+                            >
                               <Share2 className="w-3 h-3" />
                               <span>Share</span>
                             </button>
@@ -431,6 +657,23 @@ export default function ChatbotPage() {
           </div>
         </div>
       </main>
+
+      <div className="fixed bottom-4 right-4 space-y-2 z-50">
+        {toasts.map((toast) => (
+          <div
+            key={toast.id}
+            className={`px-4 py-3 rounded-lg shadow-lg text-sm text-white ${
+              toast.variant === "error"
+                ? "bg-red-500"
+                : toast.variant === "success"
+                  ? "bg-emerald-600"
+                  : "bg-gray-900"
+            }`}
+          >
+            {toast.message}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
