@@ -24,7 +24,7 @@ router.get("/list", authMiddleware, async (req, res, next) => {
     const { data, error } = await supabase
       .from("profiles")
       .select(
-        "id, full_name, name, email, phone, phone_number, address, city, country, avatar_url, image_url, onboarding_completed"
+        "id, full_name, email, phone, phone_number, address, city, country, avatar_url, image_url, onboarding_completed"
       )
       .in("id", ids)
     if (error) {
@@ -36,7 +36,7 @@ router.get("/list", authMiddleware, async (req, res, next) => {
       const med = medMap.get(p.id)
       return {
         id: p.id,
-        full_name: p.full_name || p.name || "Patient",
+        full_name: p.full_name || "Patient",
         email: p.email || null,
         phone: p.phone || p.phone_number || null,
         address: p.address || [p.city, p.country].filter(Boolean).join(", ") || null,
