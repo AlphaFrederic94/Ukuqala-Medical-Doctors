@@ -183,6 +183,30 @@ async function ensureSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_chatbot_reactions_msg ON chatbot_message_reactions(message_id);
     CREATE INDEX IF NOT EXISTS idx_chatbot_reactions_doctor ON chatbot_message_reactions(doctor_id);
+
+    -- Doctor collaboration (doctor-to-doctor chats)
+    CREATE TABLE IF NOT EXISTS collab_conversations (
+      id UUID PRIMARY KEY,
+      doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      peer_doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (doctor_id, peer_doctor_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_collab_conversations_doctor ON collab_conversations(doctor_id);
+    CREATE INDEX IF NOT EXISTS idx_collab_conversations_peer ON collab_conversations(peer_doctor_id);
+
+    CREATE TABLE IF NOT EXISTS collab_messages (
+      id UUID PRIMARY KEY,
+      conversation_id UUID NOT NULL REFERENCES collab_conversations(id) ON DELETE CASCADE,
+      doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      type TEXT NOT NULL CHECK (type IN ('text','patient_card')),
+      content TEXT,
+      metadata JSONB DEFAULT '{}'::jsonb,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_collab_messages_conv ON collab_messages(conversation_id);
+    CREATE INDEX IF NOT EXISTS idx_collab_messages_doctor ON collab_messages(doctor_id);
   `
   logger.info({ connectionInfo }, "Ensuring database schema")
   const client = await pool.connect()

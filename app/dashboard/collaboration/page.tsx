@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   Send,
   Paperclip,
@@ -138,47 +138,12 @@ const sharedFiles = [
   { id: 2, name: "Lab_Results_Analysis.pdf", size: "1.8 MB", date: "27 Dec, 2024" },
 ]
 
-const myPatients: Patient[] = [
-  {
-    id: 1,
-    patientName: "John Doe",
-    patientAge: 45,
-    bloodGroup: "O+",
-    medicalCondition: "Hypertension",
-    height: "178 cm",
-    weight: "82 kg",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop",
-    medicalFileUrl: "#",
-  },
-  {
-    id: 2,
-    patientName: "Mary Smith",
-    patientAge: 52,
-    bloodGroup: "A-",
-    medicalCondition: "Type 2 Diabetes",
-    height: "165 cm",
-    weight: "75 kg",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop",
-    medicalFileUrl: "#",
-  },
-  {
-    id: 3,
-    patientName: "Carlos Alvarez",
-    patientAge: 60,
-    bloodGroup: "B+",
-    medicalCondition: "Heart Failure",
-    height: "172 cm",
-    weight: "90 kg",
-    avatar: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200&h=200&fit=crop",
-    medicalFileUrl: "#",
-  },
-]
-
 export default function CollaborationPage() {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
   const [tab, setTab] = useState<"chat" | "directory">("chat")
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null)
   const [message, setMessage] = useState("")
-  const [messages, setMessages] = useState<Message[]>(initialMessages)
+  const [messages, setMessages] = useState<Message[]>([])
   const [showSharePatient, setShowSharePatient] = useState(false)
   const [shareNotes, setShareNotes] = useState("")
   const [showInfoPanel, setShowInfoPanel] = useState(false)
@@ -186,6 +151,11 @@ export default function CollaborationPage() {
   const [patientSearch, setPatientSearch] = useState("")
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
   const [toast, setToast] = useState<string | null>(null)
+  const [directory, setDirectory] = useState<Doctor[]>([])
+  const [chats, setChats] = useState<any[]>([])
+  const [patients, setPatients] = useState<Patient[]>([])
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
+  const token = typeof window !== "undefined" ? localStorage.getItem("doctorToken") : null
 
   const doctorStatusBadge = (status: Doctor["status"]) => {
     if (status === "online") return "bg-emerald-100 text-emerald-700"
@@ -210,35 +180,141 @@ export default function CollaborationPage() {
     setMessage("")
   }
 
-  const handleSharePatient = () => {
-    if (!selectedDoctor || !selectedPatient) return
-    const newMessage: Message = {
-      id: Date.now(),
-      sender: "You",
-      content: "",
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      isOwn: true,
+  const handleSharePatient = async () => {
+    if (!selectedDoctor || !selectedPatient || !selectedChatId || !token || !API_URL) return
+    const payload = {
       type: "patient_card",
-      patient: selectedPatient,
+      content: "",
+      patientPayload: selectedPatient,
       notes: shareNotes.trim(),
     }
-    setMessages((prev) => [...prev, newMessage])
-    setSelectedPatient(null)
-    setShareNotes("")
-    setShowSharePatient(false)
-    setToast(`Patient Case shared successfully with ${selectedDoctor.name}.`)
-    setTimeout(() => setToast(null), 2500)
+    try {
+      const res = await fetch(`${API_URL}/collaboration/chats/${selectedChatId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        const m = json.data
+        const msg: Message = {
+          id: m.id,
+          sender: "You",
+          content: "",
+          time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          isOwn: true,
+          type: "patient_card",
+          patient: m.metadata?.patient || selectedPatient,
+          notes: m.metadata?.notes || shareNotes.trim(),
+        }
+        setMessages((prev) => [...prev, msg])
+        setToast(`Patient Case shared successfully with ${selectedDoctor.name}.`)
+        setTimeout(() => setToast(null), 2500)
+        setSelectedPatient(null)
+        setShareNotes("")
+        setShowSharePatient(false)
+      }
+    } catch {
+      // ignore for now
+    }
   }
 
-  const sidebarList = useMemo(() => (tab === "chat" ? chatList : availableDoctors), [tab])
+  const sidebarList = useMemo(() => (tab === "chat" ? chats : directory), [tab, chats, directory])
   const filteredPatients = useMemo(
     () =>
-      myPatients.filter((p) => {
+      patients.filter((p) => {
         const hay = `${p.patientName} ${p.medicalCondition} ${p.bloodGroup}`.toLowerCase()
         return hay.includes(patientSearch.toLowerCase())
       }),
     [patientSearch]
   )
+
+  useEffect(() => {
+    if (!token || !API_URL) return
+    ;(async () => {
+      try {
+        const [doctorsRes, chatsRes, patientsRes] = await Promise.all([
+          fetch(`${API_URL}/doctors?onboardingCompleted=true`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_URL}/collaboration/chats`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_URL}/patients/doctor/list`, { headers: { Authorization: `Bearer ${token}` } }),
+        ])
+        if (doctorsRes.ok) {
+          const json = await doctorsRes.json()
+          const mapped: Doctor[] = (json.data || []).map((d: any) => ({
+            id: d.id,
+            name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || d.email,
+            specialty: d.specialty || "Doctor",
+            avatar: d.avatar_url ? d.avatar_url.substring(0, 2).toUpperCase() : (d.first_name || "DR")[0],
+            status: "online",
+          }))
+          setDirectory(mapped)
+        }
+        if (chatsRes.ok) {
+          const json = await chatsRes.json()
+        const mapped = (json.data || []).map((c: any) => {
+            const peerId = c.doctor_id === token ? c.peer_doctor_id : c.doctor_id
+            return {
+              id: c.id,
+              peerDoctorId: peerId,
+              name: `${c.peer_first || ""} ${c.peer_last || ""}`.trim() || c.peer_email,
+              specialty: "",
+              avatar: (c.peer_first || "DR")[0],
+              status: "online",
+              time: "",
+              lastMessage: "",
+            }
+          })
+          setChats(mapped)
+          if (mapped.length && !selectedChatId) {
+            setSelectedChatId(mapped[0].id)
+          }
+        }
+        if (patientsRes.ok) {
+          const json = await patientsRes.json()
+          const mapped: Patient[] = (json.data || []).map((p: any) => ({
+            id: p.id,
+            patientName: p.full_name || p.name || "Patient",
+            patientAge: p.age || 0,
+            bloodGroup: p.blood_group || "N/A",
+            medicalCondition: p.primary_condition || "N/A",
+            height: p.height || "N/A",
+            weight: p.weight || "N/A",
+            avatar: p.avatar_url || "",
+            medicalFileUrl: p.medical_file_url || "#",
+          }))
+          setPatients(mapped)
+        }
+      } catch (err) {
+        // swallow fetch errors for now
+      }
+    })()
+  }, [API_URL, token, selectedChatId])
+
+  useEffect(() => {
+    if (!selectedChatId || !token || !API_URL) return
+    ;(async () => {
+      try {
+        const res = await fetch(`${API_URL}/collaboration/chats/${selectedChatId}/messages`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) return
+        const json = await res.json()
+        const mapped: Message[] = (json.data || []).map((m: any) => ({
+          id: m.id,
+          sender: m.doctor_id === (selectedDoctor as any)?.id ? "You" : "Peer",
+          content: m.content,
+          time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          isOwn: true,
+          type: m.type,
+          patient: m.metadata?.patient,
+          notes: m.metadata?.notes,
+        }))
+        setMessages(mapped)
+      } catch {
+        // ignore
+      }
+    })()
+  }, [selectedChatId, selectedDoctor, API_URL, token])
 
   return (
     <div className="flex flex-col h-full">
