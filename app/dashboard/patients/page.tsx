@@ -2,17 +2,30 @@
 
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Mail, Phone, MapPin } from "lucide-react"
+import { Search, Mail, Phone, MapPin, Droplets, Ruler, Weight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Header } from "@/components/header"
 
+type Patient = {
+  id: string
+  full_name: string
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+  avatar_url?: string | null
+  onboarding_completed?: boolean
+  blood_group?: string | null
+  height?: number | null
+  weight?: number | null
+}
+
 export default function PatientsPage() {
-  const [patients, setPatients] = useState<any[]>([])
+  const [patients, setPatients] = useState<Patient[]>([])
   const [searchQuery, setSearchQuery] = useState("")
-  const [selected, setSelected] = useState<any | null>(null)
+  const [selected, setSelected] = useState<Patient | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || ""
@@ -103,13 +116,23 @@ export default function PatientsPage() {
           {!loading &&
             !error &&
             filtered.map((p) => {
-              const initials = (p.full_name || "P").split(" ").map((x: string) => x[0]).join("").slice(0, 2).toUpperCase()
+              const initials = (p.full_name || "P")
+                .split(" ")
+                .map((x: string) => x[0])
+                .join("")
+                .slice(0, 2)
+                .toUpperCase()
               return (
                 <Card key={p.id} className="border border-border bg-card p-4 sm:p-6">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex flex-col sm:flex-row gap-4">
-                      <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-blue-500/20">
-                        <span className="text-xl font-semibold text-blue-500">{initials || "PT"}</span>
+                      <div className="flex h-14 w-14 sm:h-16 sm:w-16 items-center justify-center rounded-full bg-blue-500/20 overflow-hidden">
+                        {p.avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={p.avatar_url} alt={p.full_name} className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="text-xl font-semibold text-blue-500">{initials || "PT"}</span>
+                        )}
                       </div>
                       <div className="flex-1">
                         <div className="mb-2 flex flex-wrap items-center gap-3">
@@ -133,6 +156,28 @@ export default function PatientsPage() {
                             <span>{p.address || "N/A"}</span>
                           </div>
                         </div>
+                        {(p.blood_group || p.height || p.weight) && (
+                          <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                            {p.blood_group && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">
+                                <Droplets className="h-3 w-3" />
+                                {p.blood_group}
+                              </span>
+                            )}
+                            {p.height && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-1 text-blue-700">
+                                <Ruler className="h-3 w-3" />
+                                {p.height} cm
+                              </span>
+                            )}
+                            {p.weight && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-1 text-purple-700">
+                                <Weight className="h-3 w-3" />
+                                {p.weight} kg
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
@@ -193,6 +238,18 @@ export default function PatientsPage() {
               <div>
                 <p className="text-muted-foreground">Onboarding</p>
                 <p className="text-foreground font-semibold">{selected.onboarding_completed ? "Completed" : "Pending"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Blood Group</p>
+                <p className="text-foreground font-semibold">{selected.blood_group || "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Height</p>
+                <p className="text-foreground font-semibold">{selected.height ? `${selected.height} cm` : "N/A"}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Weight</p>
+                <p className="text-foreground font-semibold">{selected.weight ? `${selected.weight} kg` : "N/A"}</p>
               </div>
             </div>
             <p className="text-xs text-muted-foreground mt-4">

@@ -16,9 +16,16 @@ router.get("/:id", async (req, res, next) => {
     const rec = recordRes.rows[0]
 
     let profile = null
+    let med = null
     if (rec.on_platform && rec.patient_external_id) {
       const { data } = await supabase.from("profiles").select("*").eq("id", rec.patient_external_id).maybeSingle()
       profile = data || null
+      const { data: medData } = await supabase
+        .from("medical_records")
+        .select("*")
+        .eq("user_id", rec.patient_external_id)
+        .maybeSingle()
+      med = medData || null
     }
 
     const response = {
@@ -38,17 +45,17 @@ router.get("/:id", async (req, res, next) => {
       notes: rec.notes,
       created_at: rec.created_at,
       updated_at: rec.updated_at,
-      blood_group: rec.blood_group || (profile ? profile.blood_group : null) || null,
-      height: rec.height || (profile ? profile.height : null) || null,
-      weight: rec.weight || (profile ? profile.weight : null) || null,
+      blood_group: rec.blood_group || med?.blood_group || null,
+      height: rec.height || med?.height || null,
+      weight: rec.weight || med?.weight || null,
       profile: profile
         ? {
             full_name: profile.full_name || profile.name,
             age: profile.age || null,
             gender: profile.gender || null,
-            blood_group: profile.blood_group || null,
-            height: profile.height || null,
-            weight: profile.weight || null,
+            blood_group: med?.blood_group || null,
+            height: med?.height || null,
+            weight: med?.weight || null,
             avatar_url: profile.avatar_url || profile.image_url || rec.avatar_url,
             primary_condition: profile.primary_condition || null,
             medical_file_url: profile.medical_file_url || null,

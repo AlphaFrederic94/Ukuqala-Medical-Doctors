@@ -5,6 +5,13 @@ const { supabase } = require("../config/supabase")
 
 const router = express.Router()
 
+async function fetchMedicalRecords(userIds = []) {
+  if (!userIds.length) return []
+  const { data, error } = await supabase.from("medical_records").select("*").in("user_id", userIds)
+  if (error || !data) return []
+  return data
+}
+
 // List patients for a doctor based on appointments
 router.get("/list", authMiddleware, async (req, res, next) => {
   try {
@@ -14,11 +21,35 @@ router.get("/list", authMiddleware, async (req, res, next) => {
     if (ids.length === 0) {
       return res.json({ success: true, data: [] })
     }
-    const { data, error } = await supabase.from("profiles").select("*").in("id", ids)
+    const { data, error } = await supabase
+      .from("profiles")
+      .select(
+        "id, full_name, name, email, phone, phone_number, address, city, country, avatar_url, image_url, onboarding_completed"
+      )
+      .in("id", ids)
     if (error) {
       throw new Error(error.message)
     }
-    res.json({ success: true, data })
+    const medRecords = await fetchMedicalRecords(ids)
+    const medMap = new Map(medRecords.map((m) => [m.user_id, m]))
+    const mapped = (data || []).map((p) => {
+      const med = medMap.get(p.id)
+      return {
+        id: p.id,
+        full_name: p.full_name || p.name || "Patient",
+        email: p.email || null,
+        phone: p.phone || p.phone_number || null,
+        address: p.address || [p.city, p.country].filter(Boolean).join(", ") || null,
+        avatar_url: p.avatar_url || p.image_url || null,
+        onboarding_completed: p.onboarding_completed || false,
+        blood_group: med?.blood_group || null,
+        height: med?.height || null,
+        weight: med?.weight || null,
+        age: med?.age || null,
+        gender: med?.gender || null,
+      }
+    })
+    res.json({ success: true, data: mapped })
   } catch (err) {
     next(err)
   }

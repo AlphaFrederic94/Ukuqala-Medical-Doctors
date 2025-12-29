@@ -40,10 +40,13 @@ async function hydrateProfiles(records) {
   )
   if (!ids.length) return records
   const { data, error } = await supabase.from("profiles").select("*").in("id", ids)
-  if (error || !data) return records
+  const { data: medData, error: medError } = await supabase.from("medical_records").select("*").in("user_id", ids)
+  if (error || medError || !data) return records
   const map = new Map(data.map((p) => [p.id, p]))
+  const medMap = new Map((medData || []).map((m) => [m.user_id, m]))
   return records.map((r) => {
     const prof = map.get(r.patient_external_id)
+    const med = medMap.get(r.patient_external_id)
     if (!prof) return r
     const address = prof.address || [prof.city, prof.country].filter(Boolean).join(", ") || r.patient_address
     return {
@@ -53,9 +56,12 @@ async function hydrateProfiles(records) {
       patient_phone: r.patient_phone || prof.phone || prof.phone_number || null,
       patient_address: address || null,
       avatar_url: r.avatar_url || prof.avatar_url || prof.image_url || null,
-      blood_group: r.blood_group || prof.blood_group || null,
-      height: r.height || prof.height || null,
-      weight: r.weight || prof.weight || null,
+      blood_group: r.blood_group || med?.blood_group || null,
+      height: r.height || med?.height || null,
+      weight: r.weight || med?.weight || null,
+      age: med?.age || null,
+      gender: med?.gender || null,
+      bmi: med?.bmi || null,
     }
   })
 }
