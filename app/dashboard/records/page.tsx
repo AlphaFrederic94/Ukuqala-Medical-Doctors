@@ -141,7 +141,7 @@ export default function RecordsPage() {
     const code = selected.qr_code || selected.id
     const link =
       typeof window !== "undefined"
-        ? `${window.location.origin.replace(/\/$/, "")}/public/record/${encodeURIComponent(code)}`
+        ? `${window.location.origin.replace(/\/$/, "")}/public/record?id=${encodeURIComponent(code)}`
         : code
     QRCode.toDataURL(link, { width: 180, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
       .then(setQrDataUrl)
