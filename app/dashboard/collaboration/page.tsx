@@ -239,6 +239,20 @@ export default function CollaborationPage() {
     [patientSearch]
   )
 
+  const renderDoctorAvatar = (avatar: string | undefined, fallback: string, sizeClass: string) => {
+    const isImage = avatar && (avatar.startsWith("http") || avatar.startsWith("data:"))
+    if (isImage) {
+      return <img src={avatar} alt={fallback} className={`${sizeClass} rounded-full object-cover`} />
+    }
+    return (
+      <div
+        className={`${sizeClass} rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 text-white flex items-center justify-center text-sm font-semibold`}
+      >
+        {fallback}
+      </div>
+    )
+  }
+
   useEffect(() => {
     if (!token || !API_URL) return
     ;(async () => {
@@ -388,9 +402,7 @@ export default function CollaborationPage() {
               >
                 <div className="flex items-start gap-3">
                   <div className="relative">
-                    <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 text-white flex items-center justify-center text-sm font-semibold">
-                      {doctor.avatar}
-                    </div>
+                    {renderDoctorAvatar(doctor.avatar, doctor.name?.slice(0, 2).toUpperCase() || "DR", "w-11 h-11")}
                     <span
                       className={`absolute -right-0.5 -bottom-0.5 h-3 w-3 rounded-full border-2 border-card ${doctor.status === "online" ? "bg-emerald-500" : doctor.status === "busy" ? "bg-amber-500" : "bg-gray-400"}`}
                     />
@@ -434,9 +446,11 @@ export default function CollaborationPage() {
                     <span className="ml-1 text-sm">Back</span>
                   </Button>
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 text-white flex items-center justify-center text-sm font-semibold">
-                      {selectedDoctor.avatar}
-                    </div>
+                    {renderDoctorAvatar(
+                      selectedDoctor.avatar,
+                      selectedDoctor.name?.slice(0, 2).toUpperCase() || "DR",
+                      "w-10 h-10"
+                    )}
                     <span
                       className={`absolute -right-0.5 -bottom-0.5 h-2.5 w-2.5 rounded-full border-2 border-card ${selectedDoctor.status === "online" ? "bg-emerald-500" : selectedDoctor.status === "busy" ? "bg-amber-500" : "bg-gray-400"}`}
                     />
@@ -594,8 +608,12 @@ export default function CollaborationPage() {
             </div>
             <div className="p-4 space-y-6 overflow-y-auto">
               <div className="text-center space-y-2">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 text-white flex items-center justify-center text-2xl font-semibold mx-auto">
-                  {selectedDoctor.avatar}
+                <div className="mx-auto">
+                  {renderDoctorAvatar(
+                    selectedDoctor.avatar,
+                    selectedDoctor.name?.slice(0, 2).toUpperCase() || "DR",
+                    "w-20 h-20"
+                  )}
                 </div>
                 <div>
                   <p className="font-semibold text-foreground">{selectedDoctor.name}</p>
