@@ -23,7 +23,7 @@ router.get("/list", authMiddleware, async (req, res, next) => {
     }
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email, phone, address, avatar_url, image_url, onboarding_completed, created_at, updated_at, date_of_birth")
+      .select("id, full_name, email, phone, address, avatar_url, onboarding_completed, created_at, updated_at, date_of_birth")
       .in("id", ids)
     if (error) {
       throw new Error(error.message)
@@ -38,7 +38,7 @@ router.get("/list", authMiddleware, async (req, res, next) => {
         email: p.email || null,
         phone: p.phone || null,
         address: p.address || null,
-        avatar_url: p.avatar_url || p.image_url || null,
+        avatar_url: p.avatar_url || null,
         onboarding_completed: p.onboarding_completed || false,
         blood_group: med?.blood_group || null,
         height: med?.height || null,
