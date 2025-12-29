@@ -26,7 +26,7 @@ const NAV_ITEMS = [
   { name: "My Appointments", href: "/dashboard/appointments", icon: Calendar },
   { name: "My Sessions", href: "/dashboard/sessions", icon: Video },
   { name: "My Patients", href: "/dashboard/patients", icon: Users },
-  { name: "Medical Chatbot", href: "/dashboard/chatbot", icon: Bot, featured: true },
+  { name: "Medical Chatbot", href: "/dashboard/chatbot", icon: Bot },
   { name: "Collaboration", href: "/dashboard/collaboration", icon: Share2 },
   { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
   { name: "Patient Records", href: "/dashboard/records", icon: FileText },
@@ -90,35 +90,20 @@ export function Sidebar() {
     router.push("/auth/signin")
   }
 
-  const SidebarNavItem = ({ name, href, icon: Icon, featured }: any) => {
+  const SidebarNavItem = ({ name, href, icon: Icon }: any) => {
     const active = pathname === href
-    if (featured) {
-      return (
-        <Link
-          href={href}
-          className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all mb-2 ${
-            active
-              ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30"
-              : "text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-          } ${collapsed ? "justify-center" : ""}`}
-          onClick={() => setMobileOpen(false)}
-          title={collapsed ? name : undefined}
-        >
-          <Icon size={20} />
-          {!collapsed && <span>{name}</span>}
-        </Link>
-      )
-    }
+    const activeClasses = active
+      ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-500/30"
+      : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+    const iconColor = active ? "text-white" : "text-gray-600"
     return (
       <Link
         href={href}
-        className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-colors mb-1 ${
-          active ? "bg-gray-100 text-gray-900" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-        } ${collapsed ? "justify-center" : ""}`}
+        className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all mb-2 ${activeClasses} ${collapsed ? "justify-center" : ""}`}
         onClick={() => setMobileOpen(false)}
         title={collapsed ? name : undefined}
       >
-        <Icon size={20} />
+        <Icon size={20} className={iconColor} />
         {!collapsed && <span>{name}</span>}
       </Link>
     )
