@@ -20,6 +20,7 @@ import {
   FilePlus,
   Stethoscope,
 } from "lucide-react"
+import { jwtDecode } from "jwt-decode"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -156,6 +157,15 @@ export default function CollaborationPage() {
   const [patients, setPatients] = useState<Patient[]>([])
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null)
   const token = typeof window !== "undefined" ? localStorage.getItem("doctorToken") : null
+  const currentDoctorId = useMemo(() => {
+    if (!token) return null
+    try {
+      const payload: any = jwtDecode(token)
+      return payload?.id || payload?.sub || null
+    } catch {
+      return null
+    }
+  }, [token])
 
   const doctorStatusBadge = (status: Doctor["status"]) => {
     if (status === "online") return "bg-emerald-100 text-emerald-700"
@@ -240,25 +250,27 @@ export default function CollaborationPage() {
         ])
         if (doctorsRes.ok) {
           const json = await doctorsRes.json()
-          const mapped: Doctor[] = (json.data || []).map((d: any) => ({
+          const mapped: Doctor[] = (json.data || [])
+            .filter((d: any) => d.id !== currentDoctorId)
+            .map((d: any) => ({
             id: d.id,
             name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || d.email,
             specialty: d.specialty || "Doctor",
-            avatar: d.avatar_url ? d.avatar_url.substring(0, 2).toUpperCase() : (d.first_name || "DR")[0],
+            avatar: d.avatar_url || (d.first_name || "DR")[0],
             status: "online",
           }))
           setDirectory(mapped)
         }
         if (chatsRes.ok) {
           const json = await chatsRes.json()
-        const mapped = (json.data || []).map((c: any) => {
-            const peerId = c.doctor_id === token ? c.peer_doctor_id : c.doctor_id
+          const mapped = (json.data || []).map((c: any) => {
+            const peerId = c.doctor_id === currentDoctorId ? c.peer_doctor_id : c.doctor_id
             return {
               id: c.id,
               peerDoctorId: peerId,
               name: `${c.peer_first || ""} ${c.peer_last || ""}`.trim() || c.peer_email,
               specialty: "",
-              avatar: (c.peer_first || "DR")[0],
+              avatar: c.peer_avatar || (c.peer_first || "DR")[0],
               status: "online",
               time: "",
               lastMessage: "",
@@ -279,7 +291,7 @@ export default function CollaborationPage() {
             medicalCondition: p.primary_condition || "N/A",
             height: p.height || "N/A",
             weight: p.weight || "N/A",
-            avatar: p.avatar_url || "",
+            avatar: p.avatar_url || p.image_url || "",
             medicalFileUrl: p.medical_file_url || "#",
           }))
           setPatients(mapped)
@@ -301,10 +313,10 @@ export default function CollaborationPage() {
         const json = await res.json()
         const mapped: Message[] = (json.data || []).map((m: any) => ({
           id: m.id,
-          sender: m.doctor_id === (selectedDoctor as any)?.id ? "You" : "Peer",
+          sender: m.doctor_id === currentDoctorId ? "You" : "Peer",
           content: m.content,
           time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          isOwn: true,
+          isOwn: m.doctor_id === currentDoctorId,
           type: m.type,
           patient: m.metadata?.patient,
           notes: m.metadata?.notes,
@@ -782,7 +794,13 @@ function PatientShareCard({ patient, notes, alignRight }: { patient: Patient; no
       }`}
     >
       <div className="flex items-start gap-3">
-        <img src={patient.avatar} alt={patient.patientName} className="h-14 w-14 rounded-full object-cover" />
+        {patient.avatar ? (
+          <img src={patient.avatar} alt={patient.patientName} className="h-14 w-14 rounded-full object-cover" />
+        ) : (
+          <div className="h-14 w-14 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 text-white flex items-center justify-center text-base font-semibold">
+            {patient.patientName?.slice(0, 2).toUpperCase()}
+          </div>
+        )}
         <div className="flex-1 space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div>

@@ -3,16 +3,12 @@ const { authMiddleware } = require("../middleware/authMiddleware")
 const { pool } = require("../config/db")
 const multer = require("multer")
 const path = require("path")
-const { v4: uuidv4 } = require("uuid")
 const sharp = require("sharp")
 const { logger } = require("../utils/logger")
-const { supabase } = require("../config/supabase")
 
 const router = express.Router()
 
 router.use(authMiddleware)
-
-const AVATAR_BUCKET = process.env.SUPABASE_AVATAR_BUCKET || "doctor-avatars"
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -189,32 +185,14 @@ router.put("/", async (req, res, next) => {
 router.post("/avatar", upload.single("avatar"), async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ success: false, message: "Avatar file required" })
-    const key = `avatars/${req.user.id}/${uuidv4()}.jpg`
-
-    // Compress and normalize the image before upload (max 512x512, jpeg)
+    // Compress and normalize the image before storing (max 512x512, jpeg)
     const buffer = await sharp(req.file.buffer)
       .rotate()
       .resize(512, 512, { fit: "cover" })
       .jpeg({ quality: 80, progressive: true })
       .toBuffer()
 
-    const { error: uploadError } = await supabase.storage.from(AVATAR_BUCKET).upload(key, buffer, {
-      cacheControl: "3600",
-      upsert: true,
-      contentType: "image/jpeg",
-    })
-    if (uploadError) {
-      uploadError.status = 500
-      throw uploadError
-    }
-
-    const { data: publicUrlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(key)
-    const fileUrl = publicUrlData?.publicUrl
-    if (!fileUrl) {
-      const err = new Error("Unable to generate avatar URL")
-      err.status = 500
-      throw err
-    }
+    const fileUrl = `data:image/jpeg;base64,${buffer.toString("base64")}`
 
     const result = await pool.query(
       "UPDATE doctors SET avatar_url=$1, updated_at=NOW() WHERE id=$2 RETURNING id, email, first_name, last_name, avatar_url, phone, address, education, experience_years, specialty, country, city, timezone, languages, bio, consultation_mode, availability, onboarding_completed",
