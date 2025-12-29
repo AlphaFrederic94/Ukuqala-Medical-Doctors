@@ -114,10 +114,13 @@ export default function PublicRecordPage() {
 
   const vitalStats = useMemo(() => {
     const profile = record?.profile
+    const blood = profile?.blood_group || record?.blood_group
+    const height = profile?.height ?? record?.height
+    const weight = profile?.weight ?? record?.weight
     return [
-      { label: "Blood Group", value: profile?.blood_group || "N/A", icon: Droplets },
-      { label: "Height", value: profile?.height ? `${profile.height} cm` : "N/A", icon: Ruler },
-      { label: "Weight", value: profile?.weight ? `${profile.weight} kg` : "N/A", icon: Weight },
+      { label: "Blood Group", value: blood || "N/A", icon: Droplets },
+      { label: "Height", value: height ? `${height} cm` : "N/A", icon: Ruler },
+      { label: "Weight", value: weight ? `${weight} kg` : "N/A", icon: Weight },
       { label: "Consultations", value: record?.consultations ?? 0, icon: Activity },
     ]
   }, [record])

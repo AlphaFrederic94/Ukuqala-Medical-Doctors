@@ -23,6 +23,9 @@ import {
   Paperclip,
   CheckCircle2,
   UserPlus,
+  Droplets,
+  Ruler,
+  Weight,
 } from "lucide-react"
 
 type Attachment = { name: string; size: string; url?: string }
@@ -41,6 +44,9 @@ type RecordItem = {
   prescriptions: string[]
   attachments: Attachment[]
   notes?: string
+  blood_group?: string | null
+  height?: number | null
+  weight?: number | null
 }
 
 export default function RecordsPage() {
@@ -686,6 +692,41 @@ export default function RecordsPage() {
                     {selected.on_platform ? "Linked to platform patient" : "Manual record"}
                   </div>
                 </div>
+                {(selected.blood_group || selected.height || selected.weight) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <div className="rounded-lg border border-border bg-white p-3 flex items-center gap-3">
+                      <div className="rounded-full bg-emerald-100 text-emerald-700 p-2">
+                        <Droplets className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Blood Group</p>
+                        <p className="text-sm font-semibold text-foreground">{selected.blood_group || "N/A"}</p>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-white p-3 flex items-center gap-3">
+                      <div className="rounded-full bg-emerald-100 text-emerald-700 p-2">
+                        <Ruler className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Height</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {selected.height ? `${selected.height} cm` : "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-border bg-white p-3 flex items-center gap-3">
+                      <div className="rounded-full bg-emerald-100 text-emerald-700 p-2">
+                        <Weight className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="text-xs text-muted-foreground">Weight</p>
+                        <p className="text-sm font-semibold text-foreground">
+                          {selected.weight ? `${selected.weight} kg` : "N/A"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 {selected.notes && <p className="text-sm text-foreground">Notes: {selected.notes}</p>}
 
                 <div className="space-y-2">

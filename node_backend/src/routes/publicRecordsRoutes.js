@@ -38,6 +38,9 @@ router.get("/:id", async (req, res, next) => {
       notes: rec.notes,
       created_at: rec.created_at,
       updated_at: rec.updated_at,
+      blood_group: rec.blood_group || (profile ? profile.blood_group : null) || null,
+      height: rec.height || (profile ? profile.height : null) || null,
+      weight: rec.weight || (profile ? profile.weight : null) || null,
       profile: profile
         ? {
             full_name: profile.full_name || profile.name,

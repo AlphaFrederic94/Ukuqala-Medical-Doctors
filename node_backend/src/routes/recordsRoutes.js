@@ -53,6 +53,9 @@ async function hydrateProfiles(records) {
       patient_phone: r.patient_phone || prof.phone || prof.phone_number || null,
       patient_address: address || null,
       avatar_url: r.avatar_url || prof.avatar_url || prof.image_url || null,
+      blood_group: r.blood_group || prof.blood_group || null,
+      height: r.height || prof.height || null,
+      weight: r.weight || prof.weight || null,
     }
   })
 }
