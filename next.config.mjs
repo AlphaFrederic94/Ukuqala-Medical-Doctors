@@ -6,7 +6,7 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
-  output: 'export', // <-- add this line for static export
+  output: 'standalone',
 }
 
 export default nextConfig
