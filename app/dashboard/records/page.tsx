@@ -77,8 +77,13 @@ export default function RecordsPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null)
+  const [mounted, setMounted] = useState(false)
 
   const token = typeof window !== "undefined" ? localStorage.getItem("doctorToken") : null
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     if (!apiBase || !token) return
@@ -133,8 +138,12 @@ export default function RecordsPage() {
       setQrDataUrl(null)
       return
     }
-    const value = selected.qr_code || selected.id
-    QRCode.toDataURL(value, { width: 180, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
+    const code = selected.qr_code || selected.id
+    const link =
+      typeof window !== "undefined"
+        ? `${window.location.origin.replace(/\/$/, "")}/public/record/${encodeURIComponent(code)}`
+        : code
+    QRCode.toDataURL(link, { width: 180, margin: 1, color: { dark: "#111827", light: "#ffffff" } })
       .then(setQrDataUrl)
       .catch(() => setQrDataUrl(null))
   }, [selected])
@@ -303,6 +312,10 @@ export default function RecordsPage() {
       attachments: rec.attachments,
       notes: rec.notes,
     })
+  }
+
+  if (!mounted) {
+    return null
   }
 
   return (
