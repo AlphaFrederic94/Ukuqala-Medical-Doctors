@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Menu,
   Sun,
+  Share2,
 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { name: "My Sessions", href: "/dashboard/sessions", icon: Video },
   { name: "My Patients", href: "/dashboard/patients", icon: Users },
   { name: "Medical Chatbot", href: "/dashboard/chatbot", icon: Bot, featured: true },
+  { name: "Collaboration", href: "/dashboard/collaboration", icon: Share2 },
   { name: "Messages", href: "/dashboard/messages", icon: MessageSquare },
   { name: "Patient Records", href: "/dashboard/records", icon: FileText },
   { name: "Profile", href: "/dashboard/profile", icon: User },
