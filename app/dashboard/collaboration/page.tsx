@@ -38,6 +38,7 @@ type Doctor = {
   lastMessage?: string
   time?: string
   unread?: number
+  chatId?: string | null
 }
 
 type Message = {
@@ -173,21 +174,32 @@ export default function CollaborationPage() {
     return "bg-gray-100 text-gray-700"
   }
 
-  const handleSendMessage = () => {
-    if (!message.trim()) return
-    if (!selectedDoctor) return
-
-    const newMessage: Message = {
-      id: Date.now(),
-      sender: "You",
-      content: message,
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      isOwn: true,
-      type: "text",
+  const handleSendMessage = async () => {
+    if (!message.trim() || !selectedDoctor || !selectedChatId || !token || !API_URL) return
+    const payload = { type: "text", content: message }
+    try {
+      const res = await fetch(`${API_URL}/collaboration/chats/${selectedChatId}/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(payload),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        const m = json.data
+        const newMessage: Message = {
+          id: m.id,
+          sender: "You",
+          content: m.content,
+          time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          isOwn: true,
+          type: "text",
+        }
+        setMessages((prev) => [...prev, newMessage])
+        setMessage("")
+      }
+    } catch {
+      // ignore
     }
-
-    setMessages((prev) => [...prev, newMessage])
-    setMessage("")
   }
 
   const handleSharePatient = async () => {
@@ -239,6 +251,43 @@ export default function CollaborationPage() {
     [patientSearch]
   )
 
+  const selectDoctor = async (doctor: Doctor) => {
+    setSelectedDoctor(doctor)
+    if (doctor.chatId) {
+      setSelectedChatId(doctor.chatId)
+    }
+    if (!token || !API_URL) return
+    try {
+      const res = await fetch(`${API_URL}/collaboration/chats`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ peerDoctorId: doctor.id }),
+      })
+      if (res.ok) {
+        const json = await res.json()
+        setSelectedChatId(json.data?.id || null)
+        setChats((prev) =>
+          prev.some((c) => c.id === json.data?.id)
+            ? prev
+            : [
+                {
+                  id: json.data?.id,
+                  peerDoctorId: doctor.id,
+                  name: doctor.name,
+                  specialty: doctor.specialty,
+                  avatar: doctor.avatar,
+                  status: "online",
+                  chatId: json.data?.id,
+                },
+                ...prev,
+              ]
+        )
+      }
+    } catch {
+      // ignore
+    }
+  }
+
   const renderDoctorAvatar = (avatar: string | undefined, fallback: string, sizeClass: string) => {
     const isImage = avatar && (avatar.startsWith("http") || avatar.startsWith("data:"))
     if (isImage) {
@@ -267,12 +316,12 @@ export default function CollaborationPage() {
           const mapped: Doctor[] = (json.data || [])
             .filter((d: any) => d.id !== currentDoctorId)
             .map((d: any) => ({
-            id: d.id,
-            name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || d.email,
-            specialty: d.specialty || "Doctor",
-            avatar: d.avatar_url || (d.first_name || "DR")[0],
-            status: "online",
-          }))
+              id: d.id,
+              name: `${d.first_name || ""} ${d.last_name || ""}`.trim() || d.email,
+              specialty: d.specialty || "Doctor",
+              avatar: d.avatar_url || "",
+              status: "online",
+            }))
           setDirectory(mapped)
         }
         if (chatsRes.ok) {
@@ -288,6 +337,7 @@ export default function CollaborationPage() {
               status: "online",
               time: "",
               lastMessage: "",
+              chatId: c.id,
             }
           })
           setChats(mapped)
@@ -340,7 +390,7 @@ export default function CollaborationPage() {
         // ignore
       }
     })()
-  }, [selectedChatId, selectedDoctor, API_URL, token])
+  }, [selectedChatId, API_URL, token, currentDoctorId])
 
   return (
     <div className="flex flex-col h-full">
@@ -395,7 +445,7 @@ export default function CollaborationPage() {
             {sidebarList.map((doctor) => (
               <button
                 key={doctor.id}
-                onClick={() => setSelectedDoctor(doctor)}
+                onClick={() => selectDoctor(doctor)}
                 className={`w-full text-left px-4 py-3 border-b border-border/50 transition-colors ${
                   selectedDoctor?.id === doctor.id ? "bg-card shadow-sm" : "hover:bg-muted"
                 }`}
