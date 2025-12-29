@@ -9,7 +9,7 @@ router.get("/:id", async (req, res, next) => {
   try {
     const id = req.params.id
     const recordRes = await pool.query(
-      "SELECT * FROM patient_records WHERE id=$1 OR qr_code=$1 LIMIT 1",
+      "SELECT * FROM patient_records WHERE id::text = $1 OR qr_code = $1 LIMIT 1",
       [id]
     )
     if (recordRes.rowCount === 0) return res.status(404).json({ success: false, message: "Record not found" })
