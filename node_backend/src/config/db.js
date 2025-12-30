@@ -207,6 +207,42 @@ async function ensureSchema() {
     );
     CREATE INDEX IF NOT EXISTS idx_collab_messages_conv ON collab_messages(conversation_id);
     CREATE INDEX IF NOT EXISTS idx_collab_messages_doctor ON collab_messages(doctor_id);
+
+    -- Video calls (Agora)
+    CREATE TABLE IF NOT EXISTS video_calls (
+      id UUID PRIMARY KEY,
+      channel_name TEXT UNIQUE NOT NULL,
+      type TEXT NOT NULL CHECK (type IN ('appointment','instant','doctor_lounge')),
+      status TEXT NOT NULL CHECK (status IN ('scheduled','live','ended','canceled')) DEFAULT 'scheduled',
+      doctor_id UUID NOT NULL REFERENCES doctors(id) ON DELETE CASCADE,
+      patient_external_id UUID,
+      appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
+      title TEXT,
+      scheduled_at TIMESTAMPTZ,
+      started_at TIMESTAMPTZ,
+      ended_at TIMESTAMPTZ,
+      duration_seconds INT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_calls_doctor ON video_calls(doctor_id);
+    CREATE INDEX IF NOT EXISTS idx_video_calls_channel ON video_calls(channel_name);
+    CREATE INDEX IF NOT EXISTS idx_video_calls_appointment ON video_calls(appointment_id);
+
+    CREATE TABLE IF NOT EXISTS video_call_participants (
+      id UUID PRIMARY KEY,
+      call_id UUID NOT NULL REFERENCES video_calls(id) ON DELETE CASCADE,
+      participant_type TEXT NOT NULL CHECK (participant_type IN ('doctor','patient')),
+      participant_id TEXT NOT NULL,
+      uid TEXT,
+      role TEXT,
+      joined_at TIMESTAMPTZ DEFAULT NOW(),
+      left_at TIMESTAMPTZ,
+      duration_seconds INT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      UNIQUE (call_id, participant_type, participant_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_video_call_participants_call ON video_call_participants(call_id);
   `
   logger.info({ connectionInfo }, "Ensuring database schema")
   const client = await pool.connect()

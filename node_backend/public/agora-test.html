@@ -1,0 +1,177 @@
+﻿<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agora Quick Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 16px; background: #f8fafc; }
+    .row { margin-bottom: 12px; }
+    video { width: 240px; height: 180px; background: #000; margin-right: 8px; }
+  </style>
+</head>
+<body>
+  <h2>Agora Local Join Test</h2>
+  <div class="row">
+    <label>Channel: <input id="channel" value="test-channel" /></label>
+    <label>UID: <input id="uid" value="1001" /></label>
+    <button id="join">Join</button>
+    <button id="leave" disabled>Leave</button>
+  </div>
+  <div class="row">
+    <button id="mute-audio" disabled>Mute Audio</button>
+    <button id="mute-video" disabled>Mute Video</button>
+  </div>
+  <div class="row">
+    <strong>Local</strong><br />
+    <div id="local-container"></div>
+    <div id="local-volume" style="margin-top:6px;font-size:12px;color:#334155;"></div>
+  </div>
+  <div class="row">
+    <strong>Remote</strong><br />
+    <div id="remote-container"></div>
+    <div id="remote-volume" style="margin-top:6px;font-size:12px;color:#334155;"></div>
+  </div>
+  <div class="row">
+    <strong>Logs</strong>
+    <pre id="logs" style="max-width:640px; background:#0f172a; color:#e2e8f0; padding:8px; border-radius:6px; height:140px; overflow:auto;"></pre>
+  </div>
+  <div class="row">
+    <button id="play-remote">Force Play Remote Audio</button>
+    <span style="font-size:12px;color:#475569;">Use if the browser blocks autoplay</span>
+  </div>
+
+  <script src="https://download.agora.io/sdk/release/AgoraRTC_N-4.20.0.js"></script>
+  <script>
+    const log = (msg) => {
+      const el = document.getElementById("logs");
+      el.textContent += `\n${new Date().toISOString()} ${msg}`;
+      el.scrollTop = el.scrollHeight;
+    };
+
+    const apiBase = window.location.origin.replace(/\/$/, "");
+    const appId = "c130fe8e3c70445ca7c686db911f1f37";
+    const client = AgoraRTC.createClient({ mode: "rtc", codec: "vp8" });
+    let localAudioTrack, localVideoTrack;
+
+    const q = (id) => document.getElementById(id);
+
+    async function getToken(channelName, uid) {
+      const res = await fetch(`${apiBase}/agora/rtc-token`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ channelName, uid, role: "publisher" })
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.success) throw new Error(json?.message || "Failed to fetch token");
+      return json.token;
+    }
+
+    async function join() {
+      try {
+        const channel = q("channel").value.trim();
+        const uid = q("uid").value.trim() || String(Math.floor(Math.random() * 10000));
+        const token = await getToken(channel, uid);
+        const rid = await client.join(appId, channel, token, uid);
+        log(`Joined channel ${channel} as ${rid}`);
+        localAudioTrack = await AgoraRTC.createMicrophoneAudioTrack();
+        localVideoTrack = await AgoraRTC.createCameraVideoTrack();
+        await client.publish([localAudioTrack, localVideoTrack]);
+        log("Published local audio/video");
+
+        const container = document.createElement("div");
+        container.id = `local-${rid}`;
+        const player = document.createElement("div");
+        container.appendChild(player);
+        q("local-container").appendChild(container);
+        localVideoTrack.play(player);
+
+        q("join").disabled = true;
+        q("leave").disabled = false;
+        q("mute-audio").disabled = false;
+        q("mute-video").disabled = false;
+      } catch (err) {
+        alert(err.message || "Join failed");
+        log(err.message || "Join failed");
+      }
+    }
+
+    async function leave() {
+      [localAudioTrack, localVideoTrack].forEach((t) => t && t.close());
+      await client.leave();
+      q("local-container").innerHTML = "";
+      q("remote-container").innerHTML = "";
+      q("join").disabled = false;
+      q("leave").disabled = true;
+      q("mute-audio").disabled = true;
+      q("mute-video").disabled = true;
+    }
+
+    client.enableAudioVolumeIndicator();
+    client.on("volume-indicator", (levels) => {
+      levels.forEach((lvl) => {
+        if (lvl.uid === client.uid) {
+          q("local-volume").textContent = `You: ${Math.round(lvl.level)}%`;
+        } else {
+          q("remote-volume").textContent = `Remote ${lvl.uid}: ${Math.round(lvl.level)}%`;
+        }
+      });
+    });
+
+    client.on("user-published", async (user, mediaType) => {
+      await client.subscribe(user, mediaType);
+      log(`Subscribed to ${user.uid} ${mediaType}`);
+      if (mediaType === "video") {
+        const container = document.createElement("div");
+        container.id = `remote-${user.uid}`;
+        const player = document.createElement("div");
+        container.appendChild(player);
+        q("remote-container").appendChild(container);
+        user.videoTrack.play(player);
+      }
+      if (mediaType === "audio") {
+        window.__latestRemote = user;
+        try {
+          user.audioTrack.play();
+          log(`Remote audio playing for ${user.uid}`);
+        } catch (err) {
+          log(`Audio play blocked: ${err.message}`);
+        }
+      }
+    });
+
+    client.on("user-unpublished", (user) => {
+      const el = q(`remote-${user.uid}`);
+      if (el) el.remove();
+    });
+
+    q("join").onclick = join;
+    q("leave").onclick = leave;
+    q("mute-audio").onclick = () => {
+      if (!localAudioTrack) return;
+      const muted = localAudioTrack.isEnabled === false;
+      if (muted) localAudioTrack.setEnabled(true);
+      else localAudioTrack.setEnabled(false);
+    };
+    q("mute-video").onclick = () => {
+      if (!localVideoTrack) return;
+      const muted = localVideoTrack.isEnabled === false;
+      if (muted) localVideoTrack.setEnabled(true);
+      else localVideoTrack.setEnabled(false);
+    };
+    q("play-remote").onclick = () => {
+      const user = window.__latestRemote;
+      if (user && user.audioTrack) {
+        try {
+          user.audioTrack.play();
+          log(`Forced remote audio play for ${user.uid}`);
+        } catch (err) {
+          log(`Force play failed: ${err.message}`);
+        }
+      } else {
+        log("No remote audio track yet");
+      }
+    };
+  </script>
+</body>
+</html>
