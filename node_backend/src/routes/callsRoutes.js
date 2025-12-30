@@ -21,21 +21,32 @@ function ensureAgora(res) {
 
 async function ensureDoctorLounge(doctorId) {
   const channel = "doctor-lounge"
+  console.log(`[DoctorLounge] Ensuring doctor lounge exists for doctor: ${doctorId}`)
+
   const existing = await pool.query("SELECT * FROM video_calls WHERE channel_name=$1", [channel])
-  if (existing.rowCount) return existing.rows[0]
+  if (existing.rowCount) {
+    console.log(`[DoctorLounge] Doctor lounge already exists:`, { id: existing.rows[0].id, channel })
+    return existing.rows[0]
+  }
+
   const id = uuidv4()
+  console.log(`[DoctorLounge] Creating new doctor lounge:`, { id, channel })
+
   const inserted = await pool.query(
     `INSERT INTO video_calls (id, channel_name, type, status, doctor_id, title, scheduled_at, started_at)
      VALUES ($1,$2,'doctor_lounge','live',$3,'Doctor Lounge',NOW(),NOW())
      RETURNING *`,
     [id, channel, doctorId]
   )
+  console.log(`[DoctorLounge] Doctor lounge created successfully:`, { id, channel })
   return inserted.rows[0]
 }
 
 router.get("/schedule", async (req, res, next) => {
   try {
     const doctorId = req.user.id
+    console.log(`[Schedule] Fetching schedule for doctor: ${doctorId}`)
+
     const appts = await pool.query(
       `SELECT a.*, vc.id as call_id, vc.channel_name, vc.status as call_status, vc.started_at, vc.ended_at
        FROM appointments a
@@ -44,7 +55,11 @@ router.get("/schedule", async (req, res, next) => {
        ORDER BY a.scheduled_at ASC`,
       [doctorId]
     )
+    console.log(`[Schedule] Found ${appts.rowCount} upcoming appointments`)
+
     const lounge = await ensureDoctorLounge(doctorId)
+    console.log(`[Schedule] Schedule data prepared successfully`)
+
     res.json({
       success: true,
       data: {
@@ -53,6 +68,7 @@ router.get("/schedule", async (req, res, next) => {
       },
     })
   } catch (err) {
+    console.error(`[Schedule] Error fetching schedule:`, err.message)
     next(err)
   }
 })
@@ -63,13 +79,17 @@ router.post("/instant", async (req, res, next) => {
     const doctorId = req.user.id
     const id = uuidv4()
     const channel = `instant-${id.slice(0, 8)}`
+    console.log(`[Instant] Creating instant call for doctor: ${doctorId}`, { callId: id, channel })
+
     const call = await pool.query(
       `INSERT INTO video_calls (id, channel_name, type, status, doctor_id, title, scheduled_at, started_at)
        VALUES ($1,$2,'instant','live',$3,$4,NOW(),NOW()) RETURNING *`,
       [id, channel, doctorId, req.body?.title || "Instant meeting"]
     )
+    console.log(`[Instant] Call created successfully:`, { callId: id, channel })
     res.json({ success: true, data: call.rows[0] })
   } catch (err) {
+    console.error(`[Instant] Error creating instant call:`, err.message)
     next(err)
   }
 })
@@ -118,21 +138,46 @@ router.post("/:id/token", async (req, res) => {
     expireSeconds: z.number().int().positive().max(86400).default(3600),
   })
   try {
+    const callId = req.params.id
+    console.log(`[Token] Generating token for call: ${callId}`)
+
     const body = schema.parse(req.body || {})
-    const call = await pool.query("SELECT * FROM video_calls WHERE id=$1", [req.params.id])
-    if (call.rowCount === 0) return res.status(404).json({ success: false, message: "Call not found" })
+    console.log(`[Token] Parsed request body:`, { uid: body.uid, role: body.role, expireSeconds: body.expireSeconds })
+
+    const call = await pool.query("SELECT * FROM video_calls WHERE id=$1", [callId])
+    if (call.rowCount === 0) {
+      console.warn(`[Token] Call not found: ${callId}`)
+      return res.status(404).json({ success: false, message: "Call not found" })
+    }
+
     const channelName = call.rows[0].channel_name
+    console.log(`[Token] Channel name: ${channelName}`)
+
     const role = body.role === "publisher" ? RtcRole.PUBLISHER : RtcRole.SUBSCRIBER
+    const expirationTime = Math.floor(Date.now() / 1000) + body.expireSeconds
+
+    console.log(`[Token] Building token with:`, {
+      appId: appId ? "***" : "MISSING",
+      appCertificate: appCertificate ? "***" : "MISSING",
+      channelName,
+      uid: body.uid,
+      role: body.role,
+      expirationTime,
+    })
+
     const token = RtcTokenBuilder.buildTokenWithUid(
       appId,
       appCertificate,
       channelName,
       Number(body.uid),
       role,
-      Math.floor(Date.now() / 1000) + body.expireSeconds
+      expirationTime
     )
+
+    console.log(`[Token] Token generated successfully for call: ${callId}`)
     res.json({ success: true, token, appId, channelName, uid: String(body.uid) })
   } catch (err) {
+    console.error(`[Token] Error generating token:`, err.message, err)
     res.status(400).json({ success: false, message: err.message || "Invalid payload" })
   }
 })

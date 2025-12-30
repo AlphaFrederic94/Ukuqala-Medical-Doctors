@@ -45,6 +45,18 @@ export default function SessionsPage() {
   const startTimeRef = useRef<number | null>(null)
   const doctorIdRef = useRef<string | null>(null)
 
+  // Validate environment variables on mount
+  useEffect(() => {
+    if (!API_URL) {
+      console.error("[SessionsPage] NEXT_PUBLIC_API_URL is not configured")
+      setError("API URL not configured. Please contact support.")
+    }
+    if (!APP_ID) {
+      console.error("[SessionsPage] NEXT_PUBLIC_AGORA_APP_ID is not configured")
+      setError("Agora App ID not configured. Please contact support.")
+    }
+  }, [])
+
   useEffect(() => {
     const fetchProfileAndSchedule = async () => {
       if (!API_URL || !token) return
@@ -83,7 +95,28 @@ export default function SessionsPage() {
 
   // Load Agora lib
   useEffect(() => {
-    import("agora-rtc-sdk-ng").then((m) => setRtcLib(m.default))
+    import("agora-rtc-sdk-ng")
+      .then((m) => {
+        setRtcLib(m.default)
+        console.log("[Agora] SDK loaded successfully")
+      })
+      .catch((err) => {
+        console.error("[Agora] Failed to load SDK:", err)
+        setError("Failed to load video SDK. Please refresh the page.")
+      })
+  }, [])
+
+  // Monitor page visibility
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        console.warn("[SessionsPage] Page hidden - video operations may be paused")
+      } else {
+        console.log("[SessionsPage] Page visible - resuming operations")
+      }
+    }
+    document.addEventListener("visibilitychange", handleVisibilityChange)
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange)
   }, [])
 
   // Init Agora client
@@ -127,15 +160,45 @@ export default function SessionsPage() {
     return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
   }
 
+  // Helper function for fetch with timeout
+  const fetchWithTimeout = async (url: string, options: RequestInit, timeoutMs = 15000) => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal })
+      return response
+    } finally {
+      clearTimeout(timeoutId)
+    }
+  }
+
   const joinCall = async (opts: { callId?: string; appointmentId?: string; channel?: string; type: "appointment" | "instant" | "doctor_lounge" }) => {
-    if (!API_URL || !token || !APP_ID || !rtcLib) return
-    if (!clientRef.current) return
+    // Validate prerequisites
+    const missingItems: string[] = []
+    if (!API_URL) missingItems.push("API_URL")
+    if (!token) missingItems.push("token")
+    if (!APP_ID) missingItems.push("APP_ID")
+    if (!rtcLib) missingItems.push("rtcLib")
+    if (!clientRef.current) missingItems.push("clientRef")
+
+    if (missingItems.length > 0) {
+      const msg = `Cannot join call - missing: ${missingItems.join(", ")}`
+      console.error("[joinCall]", msg)
+      setError(msg)
+      return
+    }
+
     setJoining(opts.callId || opts.channel || "joining")
     try {
       let callId = opts.callId
       let channel = opts.channel
+
+      console.log(`[joinCall] Starting ${opts.type} call`, { callId, channel })
+
+      // Step 1: Create or get call
       if (opts.type === "appointment" && opts.appointmentId) {
-        const res = await fetch(`${API_URL}/calls/appointment/${opts.appointmentId}/start`, {
+        console.log("[joinCall] Starting appointment call for:", opts.appointmentId)
+        const res = await fetchWithTimeout(`${API_URL}/calls/appointment/${opts.appointmentId}/start`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         })
@@ -143,9 +206,12 @@ export default function SessionsPage() {
         if (!res.ok) throw new Error(json?.message || "Unable to start call")
         callId = json.data.id
         channel = json.data.channel_name
+        console.log("[joinCall] Appointment call created:", { callId, channel })
       }
+
       if (opts.type === "instant" && !callId) {
-        const res = await fetch(`${API_URL}/calls/instant`, {
+        console.log("[joinCall] Creating instant call")
+        const res = await fetchWithTimeout(`${API_URL}/calls/instant`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         })
@@ -153,31 +219,60 @@ export default function SessionsPage() {
         if (!res.ok) throw new Error(json?.message || "Unable to create instant call")
         callId = json.data.id
         channel = json.data.channel_name
+        console.log("[joinCall] Instant call created:", { callId, channel })
       }
+
       if (opts.type === "doctor_lounge" && lounge && !callId) {
+        console.log("[joinCall] Joining doctor lounge")
         callId = lounge.id
         channel = lounge.channel_name
+        console.log("[joinCall] Doctor lounge details:", { callId, channel })
       }
-      if (!callId || !channel) throw new Error("Missing call details")
 
+      if (!callId || !channel) throw new Error("Missing call details - unable to proceed")
+
+      // Step 2: Get Agora token
+      console.log("[joinCall] Requesting Agora token for channel:", channel)
       const uid = Math.floor(Math.random() * 100000)
-      const tokenRes = await fetch(`${API_URL}/calls/${callId}/token`, {
+      const tokenRes = await fetchWithTimeout(`${API_URL}/calls/${callId}/token`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({ uid, role: "publisher" }),
       })
-      const tokenJson = await tokenRes.json()
-      if (!tokenRes.ok) throw new Error(tokenJson?.message || "Unable to fetch token")
 
+      if (!tokenRes.ok) {
+        const errorJson = await tokenRes.json().catch(() => ({}))
+        throw new Error(errorJson?.message || `Token request failed with status ${tokenRes.status}`)
+      }
+
+      const tokenJson = await tokenRes.json()
+      if (!tokenJson.token) throw new Error("No token received from server")
+      console.log("[joinCall] Token received successfully")
+
+      // Step 3: Create local tracks
+      console.log("[joinCall] Creating local audio/video tracks")
       const localMic = await rtcLib.createMicrophoneAudioTrack()
       const localCam = await rtcLib.createCameraVideoTrack()
+      console.log("[joinCall] Local tracks created")
+
+      // Step 4: Join Agora channel
+      console.log("[joinCall] Joining Agora channel:", { channel, uid })
       const c = clientRef.current
       await c.join(APP_ID, channel, tokenJson.token, uid)
+      console.log("[joinCall] Successfully joined Agora channel")
+
+      // Step 5: Publish tracks
+      console.log("[joinCall] Publishing local tracks")
       await c.publish([localMic, localCam])
+      console.log("[joinCall] Tracks published successfully")
+
       setLocalTracks({ audio: localMic, video: localCam })
       setActiveCall({ callId, channel, uid })
       startTimeRef.current = Date.now()
-      await fetch(`${API_URL}/calls/${callId}/participants/join`, {
+
+      // Step 6: Register participant
+      console.log("[joinCall] Registering participant")
+      await fetchWithTimeout(`${API_URL}/calls/${callId}/participants/join`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -187,8 +282,11 @@ export default function SessionsPage() {
           role: "host",
         }),
       })
+      console.log("[joinCall] Participant registered successfully")
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to join call")
+      const errorMsg = err instanceof Error ? err.message : "Failed to join call"
+      console.error("[joinCall] Error:", errorMsg, err)
+      setError(errorMsg)
     } finally {
       setJoining(null)
     }
