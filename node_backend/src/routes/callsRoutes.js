@@ -57,6 +57,17 @@ router.get("/schedule", async (req, res, next) => {
     )
     console.log(`[Schedule] Found ${appts.rowCount} upcoming appointments`)
 
+    const pastAppts = await pool.query(
+      `SELECT a.*, vc.id as call_id, vc.channel_name, vc.status as call_status, vc.started_at, vc.ended_at, vc.duration_seconds
+       FROM appointments a
+       LEFT JOIN video_calls vc ON vc.appointment_id = a.id
+       WHERE a.doctor_id=$1 AND a.status IN ('completed','canceled') AND a.scheduled_at < NOW()
+       ORDER BY a.scheduled_at DESC
+       LIMIT 50`,
+      [doctorId]
+    )
+    console.log(`[Schedule] Found ${pastAppts.rowCount} past appointments`)
+
     const lounge = await ensureDoctorLounge(doctorId)
     console.log(`[Schedule] Schedule data prepared successfully`)
 
@@ -64,6 +75,7 @@ router.get("/schedule", async (req, res, next) => {
       success: true,
       data: {
         upcoming: appts.rows,
+        past: pastAppts.rows,
         lounge,
       },
     })
@@ -223,6 +235,43 @@ router.post("/:id/participants/leave", async (req, res, next) => {
     )
     res.json({ success: true, data: updated.rows[0] || null })
   } catch (err) {
+    next(err)
+  }
+})
+
+router.get("/:id/participants", async (req, res, next) => {
+  try {
+    const callId = req.params.id
+    console.log(`[Participants] Fetching participants for call: ${callId}`)
+
+    const participants = await pool.query(
+      `SELECT vcp.*, d.first_name, d.last_name, d.avatar_url, d.email
+       FROM video_call_participants vcp
+       LEFT JOIN doctors d ON vcp.participant_type = 'doctor' AND vcp.participant_id = d.id
+       WHERE vcp.call_id = $1
+       ORDER BY vcp.joined_at ASC`,
+      [callId]
+    )
+
+    const enriched = participants.rows.map((p) => ({
+      id: p.id,
+      call_id: p.call_id,
+      participant_type: p.participant_type,
+      participant_id: p.participant_id,
+      uid: p.uid,
+      role: p.role,
+      joined_at: p.joined_at,
+      left_at: p.left_at,
+      duration_seconds: p.duration_seconds,
+      display_name: p.first_name && p.last_name ? `${p.first_name} ${p.last_name}` : p.participant_id,
+      avatar_url: p.avatar_url,
+      email: p.email,
+    }))
+
+    console.log(`[Participants] Found ${enriched.length} participants`)
+    res.json({ success: true, data: enriched })
+  } catch (err) {
+    console.error(`[Participants] Error fetching participants:`, err.message)
     next(err)
   }
 })
