@@ -6,10 +6,60 @@ const { authMiddleware } = require("../middleware/authMiddleware")
 const { RtcTokenBuilder, RtcRole } = require("agora-access-token")
 
 const router = express.Router()
-router.use(authMiddleware)
 
 const appId = process.env.AGORA_APP_ID
 const appCertificate = process.env.AGORA_APP_CERTIFICATE
+
+// Public endpoint - no auth required for patient to notify doctor
+router.post("/notify-doctor", async (req, res, next) => {
+  try {
+    const schema = z.object({
+      appointmentId: z.string().optional(),
+      doctorId: z.string(),
+      callId: z.string(),
+      patientName: z.string(),
+      callType: z.enum(["appointment", "instant"]),
+    })
+    const body = schema.parse(req.body || {})
+    console.log(`[NotifyDoctor] Notifying doctor ${body.doctorId} of incoming ${body.callType} call`, {
+      callId: body.callId,
+      patientName: body.patientName,
+    })
+
+    // Create a notification for the doctor
+    const notificationId = uuidv4()
+    const title = body.callType === "appointment" ? "Appointment Call" : "Instant Call"
+    const message = `${body.patientName} is calling you`
+
+    const notification = await pool.query(
+      `INSERT INTO notifications (id, doctor_id, type, title, message, meta)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
+       RETURNING *`,
+      [
+        notificationId,
+        body.doctorId,
+        `call_${body.callType}`,
+        title,
+        message,
+        JSON.stringify({
+          callId: body.callId,
+          appointmentId: body.appointmentId || null,
+          patientName: body.patientName,
+          callType: body.callType,
+        }),
+      ]
+    )
+
+    console.log(`[NotifyDoctor] Notification created successfully:`, { notificationId, doctorId: body.doctorId })
+    res.status(201).json({ success: true, data: notification.rows[0] })
+  } catch (err) {
+    console.error(`[NotifyDoctor] Error notifying doctor:`, err.message)
+    next(err)
+  }
+})
+
+// All routes below require authentication
+router.use(authMiddleware)
 
 function ensureAgora(res) {
   if (!appId || !appCertificate) {
@@ -296,53 +346,6 @@ router.post("/:id/end", async (req, res, next) => {
     )
     res.json({ success: true, data: updated.rows[0] })
   } catch (err) {
-    next(err)
-  }
-})
-
-router.post("/notify-doctor", async (req, res, next) => {
-  try {
-    const schema = z.object({
-      appointmentId: z.string().optional(),
-      doctorId: z.string(),
-      callId: z.string(),
-      patientName: z.string(),
-      callType: z.enum(["appointment", "instant"]),
-    })
-    const body = schema.parse(req.body || {})
-    console.log(`[NotifyDoctor] Notifying doctor ${body.doctorId} of incoming ${body.callType} call`, {
-      callId: body.callId,
-      patientName: body.patientName,
-    })
-
-    // Create a notification for the doctor
-    const notificationId = uuidv4()
-    const title = body.callType === "appointment" ? "Appointment Call" : "Instant Call"
-    const message = `${body.patientName} is calling you`
-
-    const notification = await pool.query(
-      `INSERT INTO notifications (id, doctor_id, type, title, message, meta)
-       VALUES ($1, $2, $3, $4, $5, $6::jsonb)
-       RETURNING *`,
-      [
-        notificationId,
-        body.doctorId,
-        `call_${body.callType}`,
-        title,
-        message,
-        JSON.stringify({
-          callId: body.callId,
-          appointmentId: body.appointmentId || null,
-          patientName: body.patientName,
-          callType: body.callType,
-        }),
-      ]
-    )
-
-    console.log(`[NotifyDoctor] Notification created successfully:`, { notificationId, doctorId: body.doctorId })
-    res.status(201).json({ success: true, data: notification.rows[0] })
-  } catch (err) {
-    console.error(`[NotifyDoctor] Error notifying doctor:`, err.message)
     next(err)
   }
 })

@@ -466,6 +466,18 @@ export default function SessionsPage() {
       })
       console.log("[joinCall] Participant registered successfully")
 
+      // Step 7: Notify doctor of incoming call (if patient initiated)
+      if (opts.type === "appointment" || opts.type === "instant") {
+        const patientName = doctorProfile?.first_name || "Patient"
+        notifyDoctorOfCall({
+          callId,
+          doctorId: doctorIdRef.current || "",
+          patientName,
+          callType: opts.type,
+          appointmentId: opts.appointmentId,
+        })
+      }
+
       // Show success toast
       toast({
         title: "Call started",
@@ -484,6 +496,39 @@ export default function SessionsPage() {
       })
     } finally {
       setJoining(null)
+    }
+  }
+
+  const notifyDoctorOfCall = async (callData: {
+    callId: string
+    doctorId: string
+    patientName: string
+    callType: "appointment" | "instant"
+    appointmentId?: string
+  }) => {
+    if (!API_URL) return
+    try {
+      console.log("[NotifyDoctor] Sending notification to doctor:", callData)
+      const res = await fetch(`${API_URL}/calls/notify-doctor`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          callId: callData.callId,
+          doctorId: callData.doctorId,
+          patientName: callData.patientName,
+          callType: callData.callType,
+          appointmentId: callData.appointmentId || null,
+        }),
+      })
+      if (!res.ok) {
+        console.warn("[NotifyDoctor] Notification failed:", res.status)
+        return
+      }
+      const json = await res.json()
+      console.log("[NotifyDoctor] Notification sent successfully:", json.data?.id)
+    } catch (err) {
+      console.error("[NotifyDoctor] Error sending notification:", err)
+      // Non-blocking - don't interrupt the call
     }
   }
 
