@@ -184,6 +184,30 @@ async function ensureSchema() {
     CREATE INDEX IF NOT EXISTS idx_chatbot_reactions_msg ON chatbot_message_reactions(message_id);
     CREATE INDEX IF NOT EXISTS idx_chatbot_reactions_doctor ON chatbot_message_reactions(doctor_id);
 
+	    -- Patient-specific chatbot tables (Supabase-authenticated patients)
+	    CREATE TABLE IF NOT EXISTS patient_chatbot_conversations (
+	      id UUID PRIMARY KEY,
+	      patient_external_id UUID NOT NULL,
+	      title TEXT,
+	      created_at TIMESTAMPTZ DEFAULT NOW()
+	    );
+	    CREATE INDEX IF NOT EXISTS idx_patient_chatbot_conversations_patient
+	      ON patient_chatbot_conversations(patient_external_id);
+
+	    CREATE TABLE IF NOT EXISTS patient_chatbot_messages (
+	      id UUID PRIMARY KEY,
+	      conversation_id UUID NOT NULL REFERENCES patient_chatbot_conversations(id) ON DELETE CASCADE,
+	      patient_external_id UUID NOT NULL,
+	      role TEXT NOT NULL CHECK (role IN ('user','assistant')),
+	      content TEXT NOT NULL,
+	      metadata JSONB DEFAULT '{}'::jsonb,
+	      created_at TIMESTAMPTZ DEFAULT NOW()
+	    );
+	    CREATE INDEX IF NOT EXISTS idx_patient_chatbot_messages_conv
+	      ON patient_chatbot_messages(conversation_id);
+	    CREATE INDEX IF NOT EXISTS idx_patient_chatbot_messages_patient
+	      ON patient_chatbot_messages(patient_external_id);
+
     -- Doctor collaboration (doctor-to-doctor chats)
     CREATE TABLE IF NOT EXISTS collab_conversations (
       id UUID PRIMARY KEY,
